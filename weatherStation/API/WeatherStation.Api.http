@@ -1,0 +1,16 @@
+@Api_HostAddress = http://localhost:5094
+
+GET {{Api_HostAddress}}/api/hello
+Accept: application/json
+
+###
+
+GET {{Api_HostAddress}}/health
+Accept: application/json
+
+###
+
+POST {{Api_HostAddress}}/api/ingest
+Accept: application/json
+
+###

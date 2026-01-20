@@ -1,0 +1,45 @@
+{
+  "uid": "weather-readings",
+  "title": "Weather Readings",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "tags": ["weather", "influx"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Average Sensor Value (last 1h)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"readings\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"weather_reading\")\n  |> filter(fn: (r) => r._field == \"value\")\n  |> aggregateWindow(every: 1m, fn: mean)\n  |> yield(name: \"mean\")",
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          }
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    }
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  }
+}
