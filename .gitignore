@@ -55,5 +55,6 @@ nunit-*.xml
 
 # Environment files
 .env*
+appsettings.Development.json
 
 .idea/

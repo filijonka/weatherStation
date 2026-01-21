@@ -2,16 +2,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: weatherStation/API/Dockerfile
-    env_file:
-      - .env.local
-    environment:
-      - Influx__Url=http://influxdb:8086
-      - Influx__Token=${INFLUXDB_TOKEN}
-      - Influx__Org=${INFLUXDB_ORG}
-      - Influx__Bucket=${INFLUXDB_BUCKET}
-      - WeatherApi__BaseUrl=${WEATHER_API_BASE_URL}
-      - WeatherApi__ApiKey=${WEATHER_API_KEY}
+      dockerfile: Dockerfile
     ports:
       - "8080:8080"
     depends_on:
@@ -21,8 +12,6 @@ services:
     image: influxdb:2.7
     ports:
       - "8086:8086"
-    env_file:
-      - .env.local
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME}
@@ -37,8 +26,6 @@ services:
     image: grafana/grafana:11.3.0
     ports:
       - "3000:3000"
-    env_file:
-      - .env.local
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
