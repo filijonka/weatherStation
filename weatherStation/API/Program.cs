@@ -1,58 +1,97 @@
 using API.Extensions;
-using API.Interface;
+
+using Asp.Versioning.ApiExplorer;
+using Asp.Versioning;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Serilog;
+using Swashbuckle.AspNetCore.SwaggerGen;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((context, services, loggerConfiguration) =>
+ILogger applicationLogger = ApplicationServiceExtension.CreateLogger(builder.Configuration);
+builder.Host.UseSerilog(applicationLogger);
+builder.Services.AddSingleton(applicationLogger);
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
 {
-    loggerConfiguration
-        .ReadFrom.Configuration(context.Configuration)
-        .ReadFrom.Services(services)
-        .Enrich.FromLogContext();
+    string xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
+    options.TagActionsBy(api =>
+    {
+        if (api.ActionDescriptor is not ControllerActionDescriptor controllerActionDescriptor)
+        {
+            return [api.RelativePath];
+        }
+
+        string controllerName = controllerActionDescriptor.ControllerName;
+        if (api.RelativePath == null)
+        {
+            return [controllerName];
+        }
+
+        string[] pathSegments = api.RelativePath.Split('/');
+        if (pathSegments.Length <= 3 || !pathSegments[2].Equals(controllerName, StringComparison.OrdinalIgnoreCase) ||
+            pathSegments[3].Contains('{'))
+        {
+            return [controllerName];
+        }
+
+        string subGroupName = pathSegments[3];
+
+        subGroupName = char.ToUpper(subGroupName[0]) + subGroupName[1..];
+
+        return [$"{controllerName} - {subGroupName}"];
+    });
+});
+
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+}).AddApiExplorer(setup =>
+{
+    setup.GroupNameFormat = "'v'VVV";
+    setup.SubstituteApiVersionInUrl = true;
 });
 
 builder.Services.AddApplicationServices(builder.Configuration);
+builder.Services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwaggerOptions>();
 
 WebApplication app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+IApiVersionDescriptionProvider apiVersionDescriptionProvider =
+    app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
+
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.MapOpenApi();
-}
+    IReadOnlyList<ApiVersionDescription> descriptions = apiVersionDescriptionProvider.ApiVersionDescriptions;
+    foreach (string groupName in descriptions.Select(description => description.GroupName))
+    {
+        options.SwaggerEndpoint($"/swagger/{groupName}/swagger.json", groupName.ToUpperInvariant());
+    }
+});
 
 app.UseHttpsRedirection();
-
-app.MapGet("/api/hello", static () =>
-{
-    HelloResponse response = new HelloResponse("Hello from WeatherStation API");
-    return Results.Ok(response);
-})
-.WithName("GetHello");
-
-app.MapGet("/health", static () =>
-{
-    HealthResponse response = new HealthResponse("Healthy");
-    return Results.Ok(response);
-})
-.WithName("GetHealth");
-
-app.MapPost("/api/ingest", static async (
-    IWeatherIngestService ingestService,
-    CancellationToken cancellationToken
-) =>
-{
-    int writtenCount = await ingestService.FetchAndStoreAsync(cancellationToken);
-    IngestResponse response = new IngestResponse(writtenCount);
-    return Results.Ok(response);
-})
-.WithName("IngestWeatherReadings");
+app.MapControllers();
 
 app.Run();
 
-record HelloResponse(string Message);
-
-record HealthResponse(string Status);
-
-record IngestResponse(int WrittenCount);
+/// <summary>
+/// Application entry point.
+/// </summary>
+internal static partial class Program
+{
+}
