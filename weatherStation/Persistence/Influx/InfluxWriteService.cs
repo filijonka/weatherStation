@@ -1,18 +1,28 @@
-using InfluxDB.Client;
+using Persistance.Models;
+
 using InfluxDB.Client.Api.Domain;
 using InfluxDB.Client.Writes;
+using InfluxDB.Client;
 using Microsoft.Extensions.Options;
 using Serilog;
-using WeatherStation.Persistence.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Threading;
+namespace Persistance.Influx;
 
-namespace WeatherStation.Persistence.Influx;
-
+/// <inheritdoc />
 public sealed class InfluxWriteService : IInfluxWriteService
 {
     private readonly IInfluxClientFactory influxClientFactory;
     private readonly InfluxOptions options;
     private readonly ILogger logger;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="InfluxWriteService"/> class.
+    /// </summary>
+    /// <param name="influxClientFactory">Influx client factory.</param>
+    /// <param name="options">Influx options.</param>
+    /// <param name="logger">Serilog logger.</param>
     public InfluxWriteService(
         IInfluxClientFactory influxClientFactory,
         IOptions<InfluxOptions> options,
@@ -24,6 +34,7 @@ public sealed class InfluxWriteService : IInfluxWriteService
         this.logger = logger.ForContext<InfluxWriteService>();
     }
 
+    /// <inheritdoc />
     public async Task<int> WriteAsync(IReadOnlyCollection<WeatherReading> readings, CancellationToken cancellationToken)
     {
         if (readings.Count == 0)
