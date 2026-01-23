@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine3.19 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine3.22 AS base
 WORKDIR /app
 
 ENV ASPNETCORE_URLS="http://*:8080"
@@ -9,7 +9,7 @@ RUN apk add --no-cache icu-libs
 
 EXPOSE 8080
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine3.19 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.102-alpine3.22 AS build
 WORKDIR /src
 
 # Copy solution and project files first to leverage build caching
@@ -19,10 +19,10 @@ COPY ["weatherStation/Persistence/Persistence.csproj", "weatherStation/Persisten
 
 RUN dotnet restore "weatherStation/API/API.csproj"
 COPY ["weatherStation/", "weatherStation/"]
-RUN dotnet build "weatherStation/API/API.csproj" -c Release -o /app/build
+RUN dotnet build "weatherStation/API/API.csproj" -c Debug -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "weatherStation/API/API.csproj" -c Release -o /app/publish --no-restore
+RUN dotnet publish "weatherStation/API/API.csproj" -c Debug -o /app/publish --no-restore
 
 FROM base AS final
 WORKDIR /app
