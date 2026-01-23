@@ -33,7 +33,6 @@ public static class ApplicationServiceExtension
         services.Configure<NetatmoOptions>(configuration.GetSection("Netatmo"));
         services.AddSingleton<IInfluxClientFactory, InfluxClientFactory>();
         services.AddSingleton<IInfluxWriteService, InfluxWriteService>();
-        services.AddHttpClient<IExternalWeatherClient, ExternalWeatherClient>();
         services.AddSingleton<IWeatherIngestService, WeatherIngestService>();
         services.AddSingleton<INetatmoTokenStore, NetatmoTokenStore>();
         services.AddHttpClient<INetatmoOAuthClient, NetatmoOAuthClient>();
