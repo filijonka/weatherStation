@@ -7,8 +7,8 @@ namespace Persistance.Influx;
 public interface IInfluxClientFactory
 {
     /// <summary>
-    /// Gets an InfluxDB client instance.
+    /// Gets an InfluxDB write client instance.
     /// </summary>
-    /// <returns>InfluxDB client.</returns>
-    InfluxDBClient GetClient();
+    /// <returns>InfluxDB write client.</returns>
+    IInfluxWriteClient GetWriteClient();
 }

@@ -21,9 +21,9 @@ public sealed class InfluxClientFactory : IInfluxClientFactory, IDisposable
     }
 
     /// <inheritdoc />
-    public InfluxDBClient GetClient()
+    public IInfluxWriteClient GetWriteClient()
     {
-        return this.influxDbClient;
+        return new InfluxWriteClient(this.influxDbClient);
     }
 
     /// <summary>

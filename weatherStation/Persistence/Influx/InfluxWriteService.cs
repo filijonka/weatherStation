@@ -58,7 +58,7 @@ public sealed class InfluxWriteService : IInfluxWriteService
 
         this.logger.Information("Writing {Count} readings to InfluxDB bucket {Bucket}", points.Count, this.options.Bucket);
 
-        IWriteApiAsync writeApi = this.influxClientFactory.GetClient().GetWriteApiAsync();
+        IWriteApiAsync writeApi = this.influxClientFactory.GetWriteClient().GetWriteApiAsync();
         await writeApi.WritePointsAsync(points, this.options.Bucket, this.options.Org, cancellationToken);
 
         return points.Count;
