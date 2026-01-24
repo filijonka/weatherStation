@@ -1,5 +1,6 @@
+using API.Auth.Netatmo.Options;
 using API.Extensions;
-
+using API.Options;
 using Asp.Versioning.ApiExplorer;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Builder;
@@ -69,6 +70,18 @@ builder.Services.AddApplicationServices(builder.Configuration);
 builder.Services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwaggerOptions>();
 
 WebApplication app = builder.Build();
+
+try
+{
+    _ = app.Services.GetRequiredService<IOptions<NetatmoOptions>>().Value;
+    _ = app.Services.GetRequiredService<IOptions<WeatherApiOptions>>().Value;
+}
+catch (OptionsValidationException ex)
+{
+    foreach (string failure in ex.Failures)
+        applicationLogger.Fatal("Options validation failed: {Failure}", failure);
+    throw;
+}
 
 // Configure the HTTP request pipeline.
 IApiVersionDescriptionProvider apiVersionDescriptionProvider =

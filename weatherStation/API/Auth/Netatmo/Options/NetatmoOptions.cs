@@ -1,24 +1,26 @@
+using API.Options;
+
 namespace API.Auth.Netatmo.Options;
 
 /// <summary>
 /// Configuration options for Netatmo OAuth.
 /// </summary>
-public class NetatmoOptions
+public class NetatmoOptions : ValidatedOptionsBase
 {
     /// <summary>
     /// Netatmo application client id.
     /// </summary>
-    public string ClientId { get; set; } = string.Empty;
+    public string ClientId { get; init; } = string.Empty;
 
     /// <summary>
     /// Netatmo application client secret.
     /// </summary>
-    public string ClientSecret { get; set; } = string.Empty;
+    public string ClientSecret { get; init; } = string.Empty;
 
     /// <summary>
     /// Redirect URI for the OAuth callback.
     /// </summary>
-    public string RedirectUri { get; set; } = string.Empty;
+    public string RedirectUri { get; init; } = string.Empty;
 
     /// <summary>
     /// OAuth scopes to request.
@@ -28,15 +30,27 @@ public class NetatmoOptions
     /// <summary>
     /// OAuth authorization endpoint.
     /// </summary>
-    public string AuthorizeUrl { get; set; } = "https://api.netatmo.com/oauth2/authorize";
+    public string AuthorizeUrl { get; init; } = "https://api.netatmo.com/oauth2/authorize";
 
     /// <summary>
     /// OAuth token endpoint.
     /// </summary>
-    public string TokenUrl { get; set; } = "https://api.netatmo.com/oauth2/token";
+    public string TokenUrl { get; init; } = "https://api.netatmo.com/oauth2/token";
 
     /// <summary>
     /// Path to the token storage file.
     /// </summary>
-    public string TokenFilePath { get; set; } = "netatmo.tokens.json";
+    public string TokenFilePath { get; init; } = "netatmo.tokens.json";
+
+    /// <inheritdoc />
+    public override void Validate()
+    {
+        RequireNonEmpty(ClientId, nameof(ClientId));
+        RequireNonEmpty(ClientSecret, nameof(ClientSecret));
+        RequireNonEmpty(RedirectUri, nameof(RedirectUri));
+        RequireNonEmpty(Scopes, nameof(Scopes));
+        RequireNonEmpty(AuthorizeUrl, nameof(AuthorizeUrl));
+        RequireNonEmpty(TokenUrl, nameof(TokenUrl));
+        RequireNonEmpty(TokenFilePath, nameof(TokenFilePath));
+    }
 }

@@ -11,9 +11,6 @@ namespace WeatherStation.Tests.Tests.Unit.PersistenceTest;
 [TestFixture]
 public class InfluxClientFactoryTest
 {
-    /// <summary>
-    /// Get write client should return write client.
-    /// </summary>
     [Test]
     public void Test_GetWriteClient_ReturnsWriteClient()
     {
@@ -32,9 +29,6 @@ public class InfluxClientFactoryTest
         factory.Dispose();
     }
 
-    /// <summary>
-    /// Get write client should use options.
-    /// </summary>
     [Test]
     public void Test_GetWriteClient_UsesOptions()
     {

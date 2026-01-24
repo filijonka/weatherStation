@@ -5,9 +5,9 @@ using API.Interface;
 using API.Options;
 using API.Services;
 using Persistance.Influx;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Serilog;
 
 namespace API.Extensions;
@@ -29,8 +29,8 @@ public static class ApplicationServiceExtension
     )
     {
         services.Configure<InfluxOptions>(configuration.GetSection("Influx"));
-        services.Configure<WeatherApiOptions>(configuration.GetSection("WeatherApi"));
-        services.Configure<NetatmoOptions>(configuration.GetSection("Netatmo"));
+        RegisterValidatedOptions<WeatherApiOptions>(services, configuration.GetSection("WeatherApi"));
+        RegisterValidatedOptions<NetatmoOptions>(services, configuration.GetSection("Netatmo"));
         services.AddSingleton<IInfluxClientFactory, InfluxClientFactory>();
         services.AddSingleton<IInfluxWriteService, InfluxWriteService>();
         services.AddSingleton<IWeatherIngestService, WeatherIngestService>();
@@ -38,6 +38,19 @@ public static class ApplicationServiceExtension
         services.AddHttpClient<INetatmoOAuthClient, NetatmoOAuthClient>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Registers a validated options type: binds from configuration and adds IValidateOptions that calls Validate().
+    /// </summary>
+    /// <typeparam name="TOptions">The options type; must inherit ValidatedOptionsBase.</typeparam>
+    /// <param name="services">Service collection.</param>
+    /// <param name="section">Configuration section to bind from.</param>
+    private static void RegisterValidatedOptions<TOptions>(IServiceCollection services, IConfigurationSection section)
+        where TOptions : ValidatedOptionsBase
+    {
+        services.Configure<TOptions>(section);
+        services.AddSingleton<IValidateOptions<TOptions>, ValidatedOptionsValidator<TOptions>>();
     }
 
     /// <summary>

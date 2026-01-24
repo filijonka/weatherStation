@@ -3,6 +3,10 @@ using API.Auth.Netatmo.Services;
 
 using Microsoft.Extensions.Options;
 using Serilog;
+using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace WeatherStation.Tests.Tests.Unit.AuthTest.Netatmo;
 

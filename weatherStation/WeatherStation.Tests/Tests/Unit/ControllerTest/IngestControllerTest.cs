@@ -18,9 +18,6 @@ namespace WeatherStation.Tests.Tests.Unit.ControllerTest;
 [TestFixture]
 public class IngestControllerTest
 {
-    /// <summary>
-    /// Ingest should return written count.
-    /// </summary>
     [Test]
     public async Task Test_Ingest_ReturnsWrittenCount()
     {
@@ -40,11 +37,8 @@ public class IngestControllerTest
         Assert.That(response.WrittenCount, Is.EqualTo(5));
     }
 
-    /// <summary>
-    /// Ingest should handle service exceptions.
-    /// </summary>
     [Test]
-    public async Task Test_Ingest_ServiceThrowsException()
+    public void Test_Ingest_ServiceThrowsException()
     {
         Mock<IWeatherIngestService> ingestService = new ServiceTestMockBuilder<IWeatherIngestService>.Builder()
             .SetupException(s => s.FetchAndStoreAsync(It.IsAny<CancellationToken>()), new InvalidOperationException("Service error"))

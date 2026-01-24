@@ -2,12 +2,10 @@ using API.Extensions;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using NUnit.Framework;
+using Microsoft.Extensions.Options;
+using Moq;
 using System.Collections.Generic;
 using System.Linq;
-using WeatherStation.Tests.Tests;
-using Moq;
-using It = Moq.It;
 
 namespace WeatherStation.Tests.Tests.Unit.ExtensionTest;
 
@@ -17,9 +15,6 @@ namespace WeatherStation.Tests.Tests.Unit.ExtensionTest;
 [TestFixture]
 public class ApplicationServiceExtensionTest : TestBase
 {
-    /// <summary>
-    /// Add application services should register all services.
-    /// </summary>
     [Test]
     public void Test_AddApplicationServices_RegistersAllServices()
     {
@@ -46,17 +41,24 @@ public class ApplicationServiceExtensionTest : TestBase
         });
     }
 
-    /// <summary>
-    /// Add application services should configure options.
-    /// </summary>
     [Test]
     public void Test_AddApplicationServices_ConfiguresOptions()
     {
         List<KeyValuePair<string, string>> settings = new List<KeyValuePair<string, string>>
         {
             new KeyValuePair<string, string>("Influx:Url", "http://localhost:8086"),
+            new KeyValuePair<string, string>("Influx:Token", "token"),
+            new KeyValuePair<string, string>("Influx:Org", "org"),
+            new KeyValuePair<string, string>("Influx:Bucket", "bucket"),
             new KeyValuePair<string, string>("WeatherApi:BaseUrl", "https://api.example.com"),
-            new KeyValuePair<string, string>("Netatmo:ClientId", "test-client")
+            new KeyValuePair<string, string>("WeatherApi:ApiKey", "key"),
+            new KeyValuePair<string, string>("Netatmo:ClientId", "test-client"),
+            new KeyValuePair<string, string>("Netatmo:ClientSecret", "secret"),
+            new KeyValuePair<string, string>("Netatmo:RedirectUri", "http://localhost/callback"),
+            new KeyValuePair<string, string>("Netatmo:Scopes", "read_station"),
+            new KeyValuePair<string, string>("Netatmo:AuthorizeUrl", "https://api.netatmo.com/oauth2/authorize"),
+            new KeyValuePair<string, string>("Netatmo:TokenUrl", "https://api.netatmo.com/oauth2/token"),
+            new KeyValuePair<string, string>("Netatmo:TokenFilePath", "tokens.json")
         };
 
         IConfigurationRoot configuration = new ConfigurationBuilder()
@@ -67,19 +69,41 @@ public class ApplicationServiceExtensionTest : TestBase
         services.AddApplicationServices(configuration);
 
         ServiceProvider serviceProvider = services.BuildServiceProvider();
-        Microsoft.Extensions.Options.IOptions<Persistance.Influx.InfluxOptions> influxOptions = serviceProvider.GetService<Microsoft.Extensions.Options.IOptions<Persistance.Influx.InfluxOptions>>();
+        IOptions<Persistance.Influx.InfluxOptions> influxOptions = serviceProvider.GetService<Microsoft.Extensions.Options.IOptions<Persistance.Influx.InfluxOptions>>();
         Assert.That(influxOptions, Is.Not.Null);
+        Assert.DoesNotThrow(() => _ = influxOptions!.Value);
 
-        Microsoft.Extensions.Options.IOptions<API.Options.WeatherApiOptions> weatherApiOptions = serviceProvider.GetService<Microsoft.Extensions.Options.IOptions<API.Options.WeatherApiOptions>>();
+        IOptions<API.Options.WeatherApiOptions> weatherApiOptions = serviceProvider.GetService<Microsoft.Extensions.Options.IOptions<API.Options.WeatherApiOptions>>();
         Assert.That(weatherApiOptions, Is.Not.Null);
+        Assert.DoesNotThrow(() => _ = weatherApiOptions!.Value);
 
-        Microsoft.Extensions.Options.IOptions<API.Auth.Netatmo.Options.NetatmoOptions> netatmoOptions = serviceProvider.GetService<Microsoft.Extensions.Options.IOptions<API.Auth.Netatmo.Options.NetatmoOptions>>();
+        IOptions<API.Auth.Netatmo.Options.NetatmoOptions> netatmoOptions = serviceProvider.GetService<Microsoft.Extensions.Options.IOptions<API.Auth.Netatmo.Options.NetatmoOptions>>();
         Assert.That(netatmoOptions, Is.Not.Null);
+        Assert.DoesNotThrow(() => _ = netatmoOptions!.Value);
     }
 
-    /// <summary>
-    /// Create logger should return logger.
-    /// </summary>
+    [Test]
+    public void Test_AddApplicationServices_WhenNetatmoOptionsInvalid_ThrowsWhenResolved()
+    {
+        List<KeyValuePair<string, string>> settings = new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string, string>("Netatmo:ClientId", "id")
+            // Missing ClientSecret, RedirectUri, Scopes, AuthorizeUrl, TokenUrl, TokenFilePath
+        };
+
+        IConfigurationRoot configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(settings)
+            .Build();
+
+        ServiceCollection services = new ServiceCollection();
+        services.AddApplicationServices(configuration);
+        ServiceProvider serviceProvider = services.BuildServiceProvider();
+
+        IOptions<API.Auth.Netatmo.Options.NetatmoOptions> options = serviceProvider.GetService<IOptions<API.Auth.Netatmo.Options.NetatmoOptions>>();
+        Assert.That(options, Is.Not.Null);
+        Assert.Throws<OptionsValidationException>(() => _ = options!.Value);
+    }
+
     [Test]
     public void Test_CreateLogger_ReturnsLogger()
     {
@@ -91,9 +115,6 @@ public class ApplicationServiceExtensionTest : TestBase
         Assert.That(result, Is.Not.Null);
     }
 
-    /// <summary>
-    /// Create logger should read from configuration.
-    /// </summary>
     [Test]
     public void Test_CreateLogger_ReadsFromConfiguration()
     {

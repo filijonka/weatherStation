@@ -1,14 +1,18 @@
 using API.Auth.Netatmo.Options;
 using API.Auth.Netatmo.Services;
 
+using ItExpr = Moq.Protected.ItExpr;
 using Microsoft.Extensions.Options;
 using Moq;
 using Moq.Protected;
 using Serilog;
+using System;
 using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using ItExpr = Moq.Protected.ItExpr;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace WeatherStation.Tests.Tests.Unit.AuthTest.Netatmo;
 

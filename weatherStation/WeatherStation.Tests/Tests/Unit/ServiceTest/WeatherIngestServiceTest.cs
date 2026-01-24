@@ -1,15 +1,10 @@
-using API.Interface;
 using API.Services;
 
-using NUnit.Framework;
+using Moq;
+using Serilog;
 using System;
-using System.Threading.Tasks;
 using System.Threading;
 using Persistance.Influx;
-using Serilog;
-using WeatherStation.Tests.Tests;
-using Moq;
-using It = Moq.It;
 
 namespace WeatherStation.Tests.Tests.Unit.ServiceTest;
 

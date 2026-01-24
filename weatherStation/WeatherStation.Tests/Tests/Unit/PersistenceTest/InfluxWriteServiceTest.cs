@@ -5,14 +5,12 @@ using InfluxDB.Client.Writes;
 using It = Moq.It;
 using Microsoft.Extensions.Options;
 using Moq;
-using NUnit.Framework;
 using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using InfluxDB.Client;
-using WeatherStation.Tests.Tests;
 
 namespace WeatherStation.Tests.Tests.Unit.PersistenceTest;
 
@@ -22,9 +20,6 @@ namespace WeatherStation.Tests.Tests.Unit.PersistenceTest;
 [TestFixture]
 public class InfluxWriteServiceTest
 {
-    /// <summary>
-    /// Write should return zero for empty collection.
-    /// </summary>
     [Test]
     public async Task Test_Write_EmptyCollection_ReturnsZero()
     {
@@ -45,9 +40,6 @@ public class InfluxWriteServiceTest
         Assert.That(result, Is.EqualTo(0));
     }
 
-    /// <summary>
-    /// Write should convert to points and write.
-    /// </summary>
     [Test]
     public async Task Test_Write_ConvertsToPointsAndWrites()
     {
@@ -84,11 +76,8 @@ public class InfluxWriteServiceTest
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    /// <summary>
-    /// Write should throw exception on Influx error.
-    /// </summary>
     [Test]
-    public async Task Test_Write_InfluxError_ThrowsException()
+    public void Test_Write_InfluxError_ThrowsException()
     {
         Mock<IWriteApiAsync> writeApi = new Mock<IWriteApiAsync>();
         writeApi.Setup(w => w.WritePointsAsync(

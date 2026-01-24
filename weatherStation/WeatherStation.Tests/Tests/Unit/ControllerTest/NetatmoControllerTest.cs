@@ -19,9 +19,6 @@ namespace WeatherStation.Tests.Tests.Unit.ControllerTest;
 [TestFixture]
 public class NetatmoControllerTest
 {
-    /// <summary>
-    /// Login should redirect to authorize URL.
-    /// </summary>
     [Test]
     public void Test_Login_RedirectsToAuthorizeUrl()
     {
@@ -42,9 +39,6 @@ public class NetatmoControllerTest
         Assert.That(redirectResult.Url, Is.EqualTo(expectedUrl));
     }
 
-    /// <summary>
-    /// Callback should exchange code and save tokens.
-    /// </summary>
     [Test]
     public async Task Test_Callback_ExchangesCodeAndSavesTokens()
     {
@@ -81,11 +75,8 @@ public class NetatmoControllerTest
         tokenStore.Verify(s => s.SaveAsync(tokenInfo, It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    /// <summary>
-    /// Callback with missing code should throw exception.
-    /// </summary>
     [Test]
-    public async Task Test_Callback_MissingCode_ThrowsException()
+    public void Test_Callback_MissingCode_ThrowsException()
     {
         Mock<INetatmoOAuthClient> oauthClient = new ServiceTestMockBuilder<INetatmoOAuthClient>.Builder()
             .SetupException(c => c.ExchangeCodeAsync(null, It.IsAny<CancellationToken>()), new ArgumentNullException("code"))
@@ -98,11 +89,8 @@ public class NetatmoControllerTest
         Assert.ThrowsAsync<ArgumentNullException>(async () => await controller.CallbackAsync(null, CancellationToken.None));
     }
 
-    /// <summary>
-    /// Callback should handle token exchange failures.
-    /// </summary>
     [Test]
-    public async Task Test_Callback_TokenExchangeFails_ReturnsError()
+    public void Test_Callback_TokenExchangeFails_ReturnsError()
     {
         const string code = "testcode";
         Mock<INetatmoOAuthClient> oauthClient = new ServiceTestMockBuilder<INetatmoOAuthClient>.Builder()

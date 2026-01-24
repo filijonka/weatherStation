@@ -19,7 +19,6 @@ public class HealthControllerTest
         HealthController controller = new HealthController();
 
         ActionResult<HealthController.HealthResponse> result = controller.GetHealth();
-
         Assert.That(result.Result, Is.InstanceOf<OkObjectResult>());
         OkObjectResult okResult = result.Result as OkObjectResult;
         Assert.That(okResult, Is.Not.Null);

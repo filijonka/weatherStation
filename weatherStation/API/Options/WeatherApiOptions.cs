@@ -3,7 +3,7 @@ namespace API.Options;
 /// <summary>
 /// Configuration for the external weather API.
 /// </summary>
-public class WeatherApiOptions
+public class WeatherApiOptions : ValidatedOptionsBase
 {
     /// <summary>
     /// Base URL for the external API.
@@ -24,4 +24,11 @@ public class WeatherApiOptions
     /// Header name used for the API key.
     /// </summary>
     public string ApiKeyHeaderName { get; set; } = "X-Api-Key";
+
+    /// <inheritdoc />
+    public override void Validate()
+    {
+        RequireNonEmpty(BaseUrl, nameof(BaseUrl));
+        RequireNonEmpty(ApiKey, nameof(ApiKey));
+    }
 }
