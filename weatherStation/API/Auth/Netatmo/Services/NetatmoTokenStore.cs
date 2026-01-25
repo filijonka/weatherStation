@@ -38,6 +38,7 @@ public sealed class NetatmoTokenStore : INetatmoTokenStore
         try
         {
             string directory = Path.GetDirectoryName(this.filePath) ?? string.Empty;
+            this.logger.Information("We get the directory to {data}", this.filePath);
             if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
             {
                 Directory.CreateDirectory(directory);

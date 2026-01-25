@@ -7,6 +7,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
     ports:
       - "8080:8080"
+    volumes:
+      - api-data:/app/data
     depends_on:
       - influxdb
 
@@ -31,13 +33,16 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin12345}
+      - GF_INSTALL_PLUGINS=yesoreyeram-infinity-datasource
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - influxdb
+      - api
 
 volumes:
   influxdb_data:
   grafana_data:
+  api-data:

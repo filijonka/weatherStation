@@ -56,13 +56,15 @@ public sealed class NetatmoOAuthClient : INetatmoOAuthClient
     /// <inheritdoc />
     public async Task<NetatmoTokenInfo> ExchangeCodeAsync(string code, CancellationToken cancellationToken)
     {
+        string scopes = NormalizeScopes(this.options.Scopes);
         Dictionary<string, string> formFields = new Dictionary<string, string>
         {
             { "grant_type", "authorization_code" },
             { "client_id", this.options.ClientId },
             { "client_secret", this.options.ClientSecret },
             { "code", code },
-            { "redirect_uri", this.options.RedirectUri }
+            { "redirect_uri", this.options.RedirectUri },
+            { "scope", scopes }
         };
 
         return await RequestTokenAsync(formFields, cancellationToken);
@@ -117,11 +119,13 @@ public sealed class NetatmoOAuthClient : INetatmoOAuthClient
         DateTime obtainedAtUtc = DateTime.UtcNow;
         DateTime expiresAtUtc = obtainedAtUtc.AddSeconds(tokenResponse.ExpiresIn);
 
+        string scopeString = tokenResponse.Scope != null ? string.Join(" ", tokenResponse.Scope) : string.Empty;
+
         return new NetatmoTokenInfo
         {
             AccessToken = tokenResponse.AccessToken,
             RefreshToken = tokenResponse.RefreshToken,
-            Scope = tokenResponse.Scope,
+            Scope = scopeString,
             TokenType = tokenResponse.TokenType,
             ObtainedAtUtc = obtainedAtUtc,
             ExpiresAtUtc = expiresAtUtc

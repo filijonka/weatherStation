@@ -1,14 +1,15 @@
 using API.Auth.Netatmo.Interface;
+using API.Auth.Netatmo.Options;
 using API.Auth.Netatmo.Services;
 using API.Controllers.v1;
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Moq;
-using NUnit.Framework;
+using Serilog;
 using System;
-using System.Threading.Tasks;
 using System.Threading;
-using WeatherStation.Tests.Tests;
+using System.Threading.Tasks;
 using It = Moq.It;
 
 namespace WeatherStation.Tests.Tests.Unit.ControllerTest;
@@ -29,7 +30,7 @@ public class NetatmoControllerTest
         Mock<INetatmoTokenStore> tokenStore = new ServiceTestMockBuilder<INetatmoTokenStore>.Builder()
             .Build();
 
-        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object);
+        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object, Options.Create(new NetatmoOptions()), new Mock<ILogger>().Object);
 
         ActionResult result = controller.Login();
 
@@ -61,7 +62,7 @@ public class NetatmoControllerTest
             .SetupVoid(s => s.SaveAsync(tokenInfo, It.IsAny<CancellationToken>()))
             .Build();
 
-        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object);
+        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object, Options.Create(new NetatmoOptions()), new Mock<ILogger>().Object);
 
         ActionResult<NetatmoController.NetatmoCallbackResponse> result = await controller.CallbackAsync(code, CancellationToken.None);
 
@@ -76,31 +77,104 @@ public class NetatmoControllerTest
     }
 
     [Test]
-    public void Test_Callback_MissingCode_ThrowsException()
+    public async Task Test_Callback_MissingCode_ReturnsBadRequest()
     {
         Mock<INetatmoOAuthClient> oauthClient = new ServiceTestMockBuilder<INetatmoOAuthClient>.Builder()
-            .SetupException(c => c.ExchangeCodeAsync(null, It.IsAny<CancellationToken>()), new ArgumentNullException("code"))
             .Build();
         Mock<INetatmoTokenStore> tokenStore = new ServiceTestMockBuilder<INetatmoTokenStore>.Builder()
             .Build();
 
-        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object);
+        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object, Options.Create(new NetatmoOptions()), new Mock<ILogger>().Object);
 
-        Assert.ThrowsAsync<ArgumentNullException>(async () => await controller.CallbackAsync(null, CancellationToken.None));
+        ActionResult<NetatmoController.NetatmoCallbackResponse> result = await controller.CallbackAsync(string.Empty, CancellationToken.None);
+
+        Assert.That(result.Result, Is.InstanceOf<BadRequestObjectResult>());
+        BadRequestObjectResult badRequest = result.Result as BadRequestObjectResult;
+        Assert.That(badRequest, Is.Not.Null);
+        Assert.That(badRequest.Value, Is.InstanceOf<ProblemDetails>());
+        ProblemDetails problem = badRequest.Value as ProblemDetails;
+        Assert.That(problem, Is.Not.Null);
+        Assert.That(problem.Detail, Does.Contain("authorization code"));
     }
 
     [Test]
-    public void Test_Callback_TokenExchangeFails_ReturnsError()
+    public async Task Test_Callback_TokenExchangeFails_Returns502()
     {
         const string code = "testcode";
         Mock<INetatmoOAuthClient> oauthClient = new ServiceTestMockBuilder<INetatmoOAuthClient>.Builder()
-            .SetupException(c => c.ExchangeCodeAsync(code, It.IsAny<CancellationToken>()), new InvalidOperationException("Token exchange failed"))
+            .SetupException(c => c.ExchangeCodeAsync(
+                code, 
+                It.IsAny<CancellationToken>()), 
+                new InvalidOperationException("Token exchange failed")
+            )
             .Build();
         Mock<INetatmoTokenStore> tokenStore = new ServiceTestMockBuilder<INetatmoTokenStore>.Builder()
             .Build();
 
-        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object);
+        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object, Options.Create(new NetatmoOptions()), new Mock<ILogger>().Object);
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () => await controller.CallbackAsync(code, CancellationToken.None));
+        ActionResult<NetatmoController.NetatmoCallbackResponse> result = await controller.CallbackAsync(code, CancellationToken.None);
+
+        Assert.That(result.Result, Is.InstanceOf<ObjectResult>());
+        ObjectResult objectResult = result.Result as ObjectResult;
+        Assert.That(objectResult, Is.Not.Null);
+        Assert.That(objectResult.StatusCode, Is.EqualTo(502));
+        Assert.That(objectResult.Value, Is.InstanceOf<ProblemDetails>());
+        ProblemDetails problem = objectResult.Value as ProblemDetails;
+        Assert.That(problem, Is.Not.Null);
+        Assert.That(problem.Title, Is.EqualTo("Sign-in Failed"));
+    }
+
+    [Test]
+    public async Task Test_Status_NotAuthenticated_ReturnsLoginUrl()
+    {
+        Mock<INetatmoOAuthClient> oauthClient = new ServiceTestMockBuilder<INetatmoOAuthClient>.Builder().Build();
+        Mock<INetatmoTokenStore> tokenStore = new ServiceTestMockBuilder<INetatmoTokenStore>.Builder()
+            .Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()), Task.FromResult<NetatmoTokenInfo>(null!))
+            .Build();
+        NetatmoOptions options = new NetatmoOptions { ApiBaseUrl = "http://localhost:8080" };
+
+        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object, Options.Create(options), new Mock<ILogger>().Object);
+
+        ActionResult<NetatmoController.NetatmoStatusResponse> result = await controller.StatusAsync(CancellationToken.None);
+
+        Assert.That(result.Result, Is.InstanceOf<OkObjectResult>());
+        NetatmoController.NetatmoStatusResponse status = (result.Result as OkObjectResult)!.Value as NetatmoController.NetatmoStatusResponse;
+        Assert.That(status, Is.Not.Null);
+        Assert.That(status.Authenticated, Is.False);
+        Assert.That(status.Status, Is.EqualTo("Login required"));
+        Assert.That(status.LoginUrl, Is.EqualTo("http://localhost:8080/api/v1/netatmo/login"));
+        Assert.That(status.ExpiresAtUtc, Is.Null);
+    }
+
+    [Test]
+    public async Task Test_Status_Authenticated_ReturnsConnected()
+    {
+        DateTime expiresAt = DateTime.UtcNow.AddHours(1);
+        NetatmoTokenInfo tokenInfo = new NetatmoTokenInfo
+        {
+            AccessToken = "a",
+            RefreshToken = "r",
+            Scope = "read_station",
+            TokenType = "bearer",
+            ObtainedAtUtc = DateTime.UtcNow,
+            ExpiresAtUtc = expiresAt
+        };
+        Mock<INetatmoOAuthClient> oauthClient = new ServiceTestMockBuilder<INetatmoOAuthClient>.Builder().Build();
+        Mock<INetatmoTokenStore> tokenStore = new ServiceTestMockBuilder<INetatmoTokenStore>.Builder()
+            .Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()), Task.FromResult(tokenInfo))
+            .Build();
+
+        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object, Options.Create(new NetatmoOptions()), new Mock<ILogger>().Object);
+
+        ActionResult<NetatmoController.NetatmoStatusResponse> result = await controller.StatusAsync(CancellationToken.None);
+
+        Assert.That(result.Result, Is.InstanceOf<OkObjectResult>());
+        NetatmoController.NetatmoStatusResponse status = (result.Result as OkObjectResult)!.Value as NetatmoController.NetatmoStatusResponse;
+        Assert.That(status, Is.Not.Null);
+        Assert.That(status.Authenticated, Is.True);
+        Assert.That(status.Status, Is.EqualTo("Connected"));
+        Assert.That(status.LoginUrl, Is.Null);
+        Assert.That(status.ExpiresAtUtc, Is.EqualTo(expiresAt));
     }
 }

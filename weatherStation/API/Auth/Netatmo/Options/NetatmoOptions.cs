@@ -40,7 +40,13 @@ public class NetatmoOptions : ValidatedOptionsBase
     /// <summary>
     /// Path to the token storage file.
     /// </summary>
-    public string TokenFilePath { get; init; } = "netatmo.tokens.json";
+    public string TokenFilePath { get; init; } = "./data/netatmo.tokens.json";
+
+    /// <summary>
+    /// Base URL of this API (e.g. https://localhost:8080) used to build the login link
+    /// when returning status to Grafana. Defaults to http://localhost:8080.
+    /// </summary>
+    public string ApiBaseUrl { get; init; } = "http://localhost:8080";
 
     /// <inheritdoc />
     public override void Validate()

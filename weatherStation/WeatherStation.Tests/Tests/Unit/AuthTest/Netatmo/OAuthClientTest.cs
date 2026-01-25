@@ -102,7 +102,7 @@ public class OAuthClientTest : TestBase
         {
             access_token = "test-access-token",
             refresh_token = "test-refresh-token",
-            scope = "read_station",
+            scope = new[] { "read_station" },
             token_type = "bearer",
             expires_in = 3600
         });
@@ -205,7 +205,7 @@ public class OAuthClientTest : TestBase
         {
             access_token = "new-access-token",
             refresh_token = "new-refresh-token",
-            scope = "read_station",
+            scope = new[] { "read_station" },
             token_type = "bearer",
             expires_in = 3600
         });

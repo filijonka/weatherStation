@@ -36,6 +36,48 @@
           "placement": "bottom"
         }
       }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Netatmo",
+      "description": "Netatmo OAuth status. Use the login link when not connected.",
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "weatherstation-api"
+      },
+      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "weatherstation-api" },
+          "type": "json",
+          "source": "url",
+          "url": "http://api:8080/api/v1/netatmo/status",
+          "format": "table",
+          "root_selector": "",
+          "url_options": { "method": "GET" }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "authenticated": true, "expiresAtUtc": true },
+            "renameByName": { "loginUrl": "Action" }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Action" },
+            "properties": [
+              { "id": "links", "value": [{ "title": "Login", "url": "${__value.raw}" }] }
+            ]
+          }
+        ]
+      }
     }
   ],
   "time": {
