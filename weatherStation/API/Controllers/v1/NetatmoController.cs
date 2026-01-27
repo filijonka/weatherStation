@@ -1,13 +1,16 @@
 using API.Auth.Netatmo.Interface;
-using API.Auth.Netatmo.Options;
 using API.Auth.Netatmo.Services;
+using API.Helpers;
+using API.Interface.Logic;
 
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using System;
+using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using API.Responses;
 using Serilog;
 
 namespace API.Controllers.v1;
@@ -22,7 +25,7 @@ public sealed class NetatmoController : ControllerBase
 {
     private readonly INetatmoOAuthClient oauthClient;
     private readonly INetatmoTokenStore tokenStore;
-    private readonly NetatmoOptions options;
+    private readonly INetatmoLogicDataProvider logicDataProvider;
     private readonly ILogger logger;
 
     /// <summary>
@@ -30,44 +33,19 @@ public sealed class NetatmoController : ControllerBase
     /// </summary>
     /// <param name="oauthClient">OAuth client for Netatmo.</param>
     /// <param name="tokenStore">Token store.</param>
-    /// <param name="options">Netatmo options.</param>
+    /// <param name="logicDataProvider">Logic data provider for Netatmo API calls.</param>
     /// <param name="logger">Logger.</param>
     public NetatmoController(
         INetatmoOAuthClient oauthClient,
         INetatmoTokenStore tokenStore,
-        IOptions<NetatmoOptions> options,
+        INetatmoLogicDataProvider logicDataProvider,
         ILogger logger
     )
     {
         this.oauthClient = oauthClient;
         this.tokenStore = tokenStore;
-        this.options = options.Value;
+        this.logicDataProvider = logicDataProvider;
         this.logger = logger;
-    }
-
-    /// <summary>
-    /// Returns Netatmo authentication status for use by Grafana (and other UIs).
-    /// When not authenticated, <see cref="NetatmoStatusResponse.LoginUrl"/> points to the login flow.
-    /// </summary>
-    /// <param name="cancellationToken">Token used to cancel the request.</param>
-    /// <returns>Status payload with authenticated, status, loginUrl, and expiresAtUtc.</returns>
-    [HttpGet("status")]
-    public async Task<ActionResult<NetatmoStatusResponse>> StatusAsync(CancellationToken cancellationToken)
-    {
-        NetatmoTokenInfo info = await this.tokenStore.LoadAsync(cancellationToken);
-        bool authenticated = info != null && info.ExpiresAtUtc > DateTime.UtcNow;
-        string status = authenticated ? "Connected" : "Login required";
-
-        string baseUrl = (this.options.ApiBaseUrl ?? string.Empty).Trim().TrimEnd('/');
-        if (string.IsNullOrEmpty(baseUrl))
-        {
-            baseUrl = $"{this.Request.Scheme}://{this.Request.Host}";
-        }
-
-        string? loginUrl = authenticated ? null : $"{baseUrl}/api/v1/netatmo/login";
-        DateTime? expiresAtUtc = authenticated ? info!.ExpiresAtUtc : null;
-
-        return this.Ok(new NetatmoStatusResponse(authenticated, status, loginUrl, expiresAtUtc));
     }
 
     /// <summary>
@@ -89,7 +67,7 @@ public sealed class NetatmoController : ControllerBase
     /// <param name="cancellationToken">Token used to cancel the request.</param>
     /// <returns>Callback response payload.</returns>
     [HttpGet("callback")]
-    public async Task<ActionResult<NetatmoCallbackResponse>> CallbackAsync(
+    public async Task<ActionResult> CallbackAsync(
         [FromQuery] string code,
         CancellationToken cancellationToken
     )
@@ -107,13 +85,7 @@ public sealed class NetatmoController : ControllerBase
         {
             NetatmoTokenInfo tokenInfo = await this.oauthClient.ExchangeCodeAsync(code, cancellationToken);
             await this.tokenStore.SaveAsync(tokenInfo, cancellationToken);
-
-            NetatmoCallbackResponse response = new NetatmoCallbackResponse(
-                tokenInfo.Scope,
-                tokenInfo.ExpiresAtUtc
-            );
-
-            return this.Ok(response);
+            return new JsonResult(new { scope = tokenInfo.Scope, expiresAtUtc = tokenInfo.ExpiresAtUtc });
         }
         catch (Exception ex)
         {
@@ -127,19 +99,57 @@ public sealed class NetatmoController : ControllerBase
     }
 
     /// <summary>
-    /// Netatmo callback response payload.
+    /// Fetches home data from Netatmo API.
     /// </summary>
-    /// <param name="Scope">Granted scopes.</param>
-    /// <param name="ExpiresAtUtc">Token expiry time (UTC).</param>
-    public sealed record NetatmoCallbackResponse(string Scope, DateTime ExpiresAtUtc);
+    /// <param name="gatewayTypes">Optional gateway types filter (comma-separated: NLG, OTH, NBG, BNMH, BNS).</param>
+    /// <param name="cancellationToken">Token used to cancel the request.</param>
+    /// <returns>Home data JSON response.</returns>
+    [HttpGet("homesdata")]
+    public async Task<ActionResult<NetatmoAuthStatusResponse>> GetHomesDataAsync(
+        [FromQuery] string gatewayTypes,
+        CancellationToken cancellationToken
+    )
+    {
+        string baseUrl = $"{this.Request.Scheme}://{this.Request.Host}";
+        NetatmoAuthStatusResponse authStatus = await NetatmoAuthHelper.GetAuthStatusAsync(
+            this.tokenStore,
+            baseUrl,
+            cancellationToken
+        );
 
-    /// <summary>
-    /// Netatmo auth status for UIs (e.g. Grafana). When not authenticated,
-    /// <see cref="LoginUrl"/> is the URL to start the OAuth login flow.
-    /// </summary>
-    /// <param name="Authenticated">True if a valid token exists and is not expired.</param>
-    /// <param name="Status">Human-readable status: "Connected" or "Login required".</param>
-    /// <param name="LoginUrl">URL to log in; null when authenticated.</param>
-    /// <param name="ExpiresAtUtc">Token expiry (UTC); null when not authenticated.</param>
-    public sealed record NetatmoStatusResponse(bool Authenticated, string Status, string? LoginUrl, DateTime? ExpiresAtUtc);
+        if (!authStatus.Authenticated)
+        {
+            return authStatus;
+        }
+
+        string[] gatewayTypesArray = null;
+        if (!string.IsNullOrWhiteSpace(gatewayTypes))
+        {
+            gatewayTypesArray = gatewayTypes
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(gt => gt.Trim())
+                .Where(gt => !string.IsNullOrWhiteSpace(gt))
+                .ToArray();
+        }
+
+        try
+        {
+            JsonElement jsonElement = await this.logicDataProvider.GetHomesDataAsync(
+                authStatus.Token,
+                gatewayTypesArray,
+                cancellationToken
+            );
+
+            return new JsonResult(jsonElement);
+        }
+        catch (Exception ex)
+        {
+            this.logger.Error(ex, "Failed to fetch Netatmo homesdata: {Message}", ex.Message);
+            return this.StatusCode(502, new ProblemDetails
+            {
+                Title = "Netatmo API Error",
+                Detail = "Failed to retrieve home data from Netatmo. Please try again later."
+            });
+        }
+    }
 }

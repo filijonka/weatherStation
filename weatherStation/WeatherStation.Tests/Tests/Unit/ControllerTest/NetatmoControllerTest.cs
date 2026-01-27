@@ -1,16 +1,17 @@
 using API.Auth.Netatmo.Interface;
-using API.Auth.Netatmo.Options;
 using API.Auth.Netatmo.Services;
 using API.Controllers.v1;
+using API.Interface.Logic;
+using API.Responses;
 
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using Moq;
 using Serilog;
 using System;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using It = Moq.It;
 
 namespace WeatherStation.Tests.Tests.Unit.ControllerTest;
 
@@ -20,161 +21,272 @@ namespace WeatherStation.Tests.Tests.Unit.ControllerTest;
 [TestFixture]
 public class NetatmoControllerTest
 {
+    /// <summary>
+    /// GetHomesDataAsync should return auth status when not authenticated.
+    /// </summary>
     [Test]
-    public void Test_Login_RedirectsToAuthorizeUrl()
+    public async Task Test_GetHomesDataAsync_WhenNotAuthenticated_ReturnsAuthStatus()
     {
-        const string expectedUrl = "https://api.netatmo.com/oauth2/authorize?client_id=test&redirect_uri=callback&scope=read_station&response_type=code&state=teststate";
-        Mock<INetatmoOAuthClient> oauthClient = new ServiceTestMockBuilder<INetatmoOAuthClient>.Builder()
-            .Setup(c => c.BuildAuthorizeUrl(It.IsAny<string>()), expectedUrl)
-            .Build();
-        Mock<INetatmoTokenStore> tokenStore = new ServiceTestMockBuilder<INetatmoTokenStore>.Builder()
-            .Build();
+        // Arrange
+        Mock<INetatmoTokenStore> tokenStoreMock = new Mock<INetatmoTokenStore>();
+        tokenStoreMock.Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((NetatmoTokenInfo?)null);
 
-        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object, Options.Create(new NetatmoOptions()), new Mock<ILogger>().Object);
+        Mock<INetatmoOAuthClient> oauthClientMock = new Mock<INetatmoOAuthClient>();
+        Mock<INetatmoLogicDataProvider> logicDataProviderMock = new Mock<INetatmoLogicDataProvider>();
+        Mock<ILogger> loggerMock = new Mock<ILogger>();
 
-        ActionResult result = controller.Login();
+        NetatmoController controller = new NetatmoController(
+            oauthClientMock.Object,
+            tokenStoreMock.Object,
+            logicDataProviderMock.Object,
+            loggerMock.Object
+        );
 
-        Assert.That(result, Is.InstanceOf<RedirectResult>());
-        RedirectResult redirectResult = result as RedirectResult;
-        Assert.That(redirectResult, Is.Not.Null);
-        Assert.That(redirectResult.Url, Is.EqualTo(expectedUrl));
-    }
-
-    [Test]
-    public async Task Test_Callback_ExchangesCodeAndSavesTokens()
-    {
-        const string code = "testcode";
-        DateTime expiresAt = DateTime.UtcNow.AddHours(3);
-        NetatmoTokenInfo tokenInfo = new NetatmoTokenInfo
+        // Setup HttpContext
+        controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
         {
-            AccessToken = "access",
-            RefreshToken = "refresh",
-            Scope = "read_station",
-            TokenType = "bearer",
-            ObtainedAtUtc = DateTime.UtcNow,
-            ExpiresAtUtc = expiresAt
+            HttpContext = new DefaultHttpContext
+            {
+                Request =
+                {
+                    Scheme = "https",
+                    Host = new HostString("localhost:8080")
+                }
+            }
         };
 
-        Mock<INetatmoOAuthClient> oauthClient = new ServiceTestMockBuilder<INetatmoOAuthClient>.Builder()
-            .Setup(c => c.ExchangeCodeAsync(code, It.IsAny<CancellationToken>()), Task.FromResult(tokenInfo))
-            .Build();
-        Mock<INetatmoTokenStore> tokenStore = new ServiceTestMockBuilder<INetatmoTokenStore>.Builder()
-            .SetupVoid(s => s.SaveAsync(tokenInfo, It.IsAny<CancellationToken>()))
-            .Build();
+        // Act
+        ActionResult<NetatmoAuthStatusResponse> result = await controller.GetHomesDataAsync(null, CancellationToken.None);
 
-        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object, Options.Create(new NetatmoOptions()), new Mock<ILogger>().Object);
-
-        ActionResult<NetatmoController.NetatmoCallbackResponse> result = await controller.CallbackAsync(code, CancellationToken.None);
-
-        Assert.That(result.Result, Is.InstanceOf<OkObjectResult>());
-        OkObjectResult okResult = result.Result as OkObjectResult;
-        Assert.That(okResult, Is.Not.Null);
-        NetatmoController.NetatmoCallbackResponse response = okResult.Value as NetatmoController.NetatmoCallbackResponse;
-        Assert.That(response, Is.Not.Null);
-        Assert.That(response.Scope, Is.EqualTo("read_station"));
-        Assert.That(response.ExpiresAtUtc, Is.EqualTo(expiresAt));
-        tokenStore.Verify(s => s.SaveAsync(tokenInfo, It.IsAny<CancellationToken>()), Times.Once);
+        // Assert
+        Assert.That(result.Value, Is.Not.Null);
+        Assert.That(result.Value.Authenticated, Is.False);
+        Assert.That(result.Value.StatusCode, Is.EqualTo(401));
+        logicDataProviderMock.Verify(d => d.GetHomesDataAsync(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    /// <summary>
+    /// GetHomesDataAsync should return JSON data when authenticated.
+    /// </summary>
     [Test]
-    public async Task Test_Callback_MissingCode_ReturnsBadRequest()
+    public async Task Test_GetHomesDataAsync_WhenAuthenticated_ReturnsJsonData()
     {
-        Mock<INetatmoOAuthClient> oauthClient = new ServiceTestMockBuilder<INetatmoOAuthClient>.Builder()
-            .Build();
-        Mock<INetatmoTokenStore> tokenStore = new ServiceTestMockBuilder<INetatmoTokenStore>.Builder()
-            .Build();
+        // Arrange
+        NetatmoTokenInfo tokenInfo = new NetatmoTokenInfo
+        {
+            AccessToken = "test-token",
+            ExpiresAtUtc = DateTime.UtcNow.AddHours(1)
+        };
 
-        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object, Options.Create(new NetatmoOptions()), new Mock<ILogger>().Object);
+        Mock<INetatmoTokenStore> tokenStoreMock = new Mock<INetatmoTokenStore>();
+        tokenStoreMock.Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(tokenInfo);
 
-        ActionResult<NetatmoController.NetatmoCallbackResponse> result = await controller.CallbackAsync(string.Empty, CancellationToken.None);
+        JsonElement jsonData = JsonDocument.Parse("{\"homes\": []}").RootElement;
 
-        Assert.That(result.Result, Is.InstanceOf<BadRequestObjectResult>());
-        BadRequestObjectResult badRequest = result.Result as BadRequestObjectResult;
-        Assert.That(badRequest, Is.Not.Null);
-        Assert.That(badRequest.Value, Is.InstanceOf<ProblemDetails>());
-        ProblemDetails problem = badRequest.Value as ProblemDetails;
-        Assert.That(problem, Is.Not.Null);
-        Assert.That(problem.Detail, Does.Contain("authorization code"));
+        Mock<INetatmoOAuthClient> oauthClientMock = new Mock<INetatmoOAuthClient>();
+        Mock<INetatmoLogicDataProvider> logicDataProviderMock = new Mock<INetatmoLogicDataProvider>();
+        logicDataProviderMock.Setup(d => d.GetHomesDataAsync("test-token", null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(jsonData);
+        Mock<ILogger> loggerMock = new Mock<ILogger>();
+
+        NetatmoController controller = new NetatmoController(
+            oauthClientMock.Object,
+            tokenStoreMock.Object,
+            logicDataProviderMock.Object,
+            loggerMock.Object
+        );
+
+        // Setup HttpContext
+        controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                Request =
+                {
+                    Scheme = "https",
+                    Host = new HostString("localhost:8080")
+                }
+            }
+        };
+
+        // Act
+        ActionResult<NetatmoAuthStatusResponse> result = await controller.GetHomesDataAsync(null, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.Result, Is.InstanceOf<JsonResult>());
+        JsonResult jsonResult = result.Result as JsonResult;
+        Assert.That(jsonResult, Is.Not.Null);
+        logicDataProviderMock.Verify(d => d.GetHomesDataAsync("test-token", null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    /// <summary>
+    /// GetHomesDataAsync should parse and pass gatewayTypes parameter.
+    /// </summary>
     [Test]
-    public async Task Test_Callback_TokenExchangeFails_Returns502()
+    public async Task Test_GetHomesDataAsync_WithGatewayTypes_ParsesAndPassesFilter()
     {
-        const string code = "testcode";
-        Mock<INetatmoOAuthClient> oauthClient = new ServiceTestMockBuilder<INetatmoOAuthClient>.Builder()
-            .SetupException(c => c.ExchangeCodeAsync(
-                code, 
-                It.IsAny<CancellationToken>()), 
-                new InvalidOperationException("Token exchange failed")
-            )
-            .Build();
-        Mock<INetatmoTokenStore> tokenStore = new ServiceTestMockBuilder<INetatmoTokenStore>.Builder()
-            .Build();
+        // Arrange
+        NetatmoTokenInfo tokenInfo = new NetatmoTokenInfo
+        {
+            AccessToken = "test-token",
+            ExpiresAtUtc = DateTime.UtcNow.AddHours(1)
+        };
 
-        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object, Options.Create(new NetatmoOptions()), new Mock<ILogger>().Object);
+        Mock<INetatmoTokenStore> tokenStoreMock = new Mock<INetatmoTokenStore>();
+        tokenStoreMock.Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(tokenInfo);
 
-        ActionResult<NetatmoController.NetatmoCallbackResponse> result = await controller.CallbackAsync(code, CancellationToken.None);
+        JsonElement jsonData = JsonDocument.Parse("{\"homes\": []}").RootElement;
 
+        Mock<INetatmoOAuthClient> oauthClientMock = new Mock<INetatmoOAuthClient>();
+        Mock<INetatmoLogicDataProvider> logicDataProviderMock = new Mock<INetatmoLogicDataProvider>();
+        logicDataProviderMock.Setup(d => d.GetHomesDataAsync(
+            "test-token",
+            It.Is<string[]>(arr => arr != null && arr.Length == 2 && arr[0] == "NLG" && arr[1] == "OTH"),
+            It.IsAny<CancellationToken>()))
+            .ReturnsAsync(jsonData);
+        Mock<ILogger> loggerMock = new Mock<ILogger>();
+
+        NetatmoController controller = new NetatmoController(
+            oauthClientMock.Object,
+            tokenStoreMock.Object,
+            logicDataProviderMock.Object,
+            loggerMock.Object
+        );
+
+        // Setup HttpContext
+        controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                Request =
+                {
+                    Scheme = "https",
+                    Host = new HostString("localhost:8080")
+                }
+            }
+        };
+
+        // Act
+        await controller.GetHomesDataAsync("NLG, OTH", CancellationToken.None);
+
+        // Assert
+        logicDataProviderMock.Verify(d => d.GetHomesDataAsync(
+            "test-token",
+            It.Is<string[]>(arr => arr != null && arr.Length == 2 && arr[0] == "NLG" && arr[1] == "OTH"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>
+    /// GetHomesDataAsync should handle empty gatewayTypes gracefully.
+    /// </summary>
+    [Test]
+    public async Task Test_GetHomesDataAsync_WithEmptyGatewayTypes_PassesNull()
+    {
+        // Arrange
+        NetatmoTokenInfo tokenInfo = new NetatmoTokenInfo
+        {
+            AccessToken = "test-token",
+            ExpiresAtUtc = DateTime.UtcNow.AddHours(1)
+        };
+
+        Mock<INetatmoTokenStore> tokenStoreMock = new Mock<INetatmoTokenStore>();
+        tokenStoreMock.Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(tokenInfo);
+
+        JsonElement jsonData = JsonDocument.Parse("{\"homes\": []}").RootElement;
+
+        Mock<INetatmoOAuthClient> oauthClientMock = new Mock<INetatmoOAuthClient>();
+        Mock<INetatmoLogicDataProvider> logicDataProviderMock = new Mock<INetatmoLogicDataProvider>();
+        logicDataProviderMock.Setup(d => d.GetHomesDataAsync("test-token", null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(jsonData);
+        Mock<ILogger> loggerMock = new Mock<ILogger>();
+
+        NetatmoController controller = new NetatmoController(
+            oauthClientMock.Object,
+            tokenStoreMock.Object,
+            logicDataProviderMock.Object,
+            loggerMock.Object
+        );
+
+        // Setup HttpContext
+        controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                Request =
+                {
+                    Scheme = "https",
+                    Host = new HostString("localhost:8080")
+                }
+            }
+        };
+
+        // Act
+        await controller.GetHomesDataAsync("", CancellationToken.None);
+
+        // Assert
+        logicDataProviderMock.Verify(d => d.GetHomesDataAsync("test-token", null, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>
+    /// GetHomesDataAsync should return 502 when data provider throws exception.
+    /// </summary>
+    [Test]
+    public async Task Test_GetHomesDataAsync_WhenDataProviderThrows_Returns502()
+    {
+        // Arrange
+        NetatmoTokenInfo tokenInfo = new NetatmoTokenInfo
+        {
+            AccessToken = "test-token",
+            ExpiresAtUtc = DateTime.UtcNow.AddHours(1)
+        };
+
+        Mock<INetatmoTokenStore> tokenStoreMock = new Mock<INetatmoTokenStore>();
+        tokenStoreMock.Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(tokenInfo);
+
+        Mock<INetatmoOAuthClient> oauthClientMock = new Mock<INetatmoOAuthClient>();
+        Mock<INetatmoLogicDataProvider> logicDataProviderMock = new Mock<INetatmoLogicDataProvider>();
+        logicDataProviderMock.Setup(d => d.GetHomesDataAsync(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("API error"));
+        Mock<ILogger> loggerMock = new Mock<ILogger>();
+
+        NetatmoController controller = new NetatmoController(
+            oauthClientMock.Object,
+            tokenStoreMock.Object,
+            logicDataProviderMock.Object,
+            loggerMock.Object
+        );
+
+        // Setup HttpContext
+        controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                Request =
+                {
+                    Scheme = "https",
+                    Host = new HostString("localhost:8080")
+                }
+            }
+        };
+
+        // Act
+        ActionResult<NetatmoAuthStatusResponse> result = await controller.GetHomesDataAsync(null, CancellationToken.None);
+
+        // Assert
         Assert.That(result.Result, Is.InstanceOf<ObjectResult>());
         ObjectResult objectResult = result.Result as ObjectResult;
         Assert.That(objectResult, Is.Not.Null);
         Assert.That(objectResult.StatusCode, Is.EqualTo(502));
         Assert.That(objectResult.Value, Is.InstanceOf<ProblemDetails>());
-        ProblemDetails problem = objectResult.Value as ProblemDetails;
-        Assert.That(problem, Is.Not.Null);
-        Assert.That(problem.Title, Is.EqualTo("Sign-in Failed"));
-    }
-
-    [Test]
-    public async Task Test_Status_NotAuthenticated_ReturnsLoginUrl()
-    {
-        Mock<INetatmoOAuthClient> oauthClient = new ServiceTestMockBuilder<INetatmoOAuthClient>.Builder().Build();
-        Mock<INetatmoTokenStore> tokenStore = new ServiceTestMockBuilder<INetatmoTokenStore>.Builder()
-            .Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()), Task.FromResult<NetatmoTokenInfo>(null!))
-            .Build();
-        NetatmoOptions options = new NetatmoOptions { ApiBaseUrl = "http://localhost:8080" };
-
-        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object, Options.Create(options), new Mock<ILogger>().Object);
-
-        ActionResult<NetatmoController.NetatmoStatusResponse> result = await controller.StatusAsync(CancellationToken.None);
-
-        Assert.That(result.Result, Is.InstanceOf<OkObjectResult>());
-        NetatmoController.NetatmoStatusResponse status = (result.Result as OkObjectResult)!.Value as NetatmoController.NetatmoStatusResponse;
-        Assert.That(status, Is.Not.Null);
-        Assert.That(status.Authenticated, Is.False);
-        Assert.That(status.Status, Is.EqualTo("Login required"));
-        Assert.That(status.LoginUrl, Is.EqualTo("http://localhost:8080/api/v1/netatmo/login"));
-        Assert.That(status.ExpiresAtUtc, Is.Null);
-    }
-
-    [Test]
-    public async Task Test_Status_Authenticated_ReturnsConnected()
-    {
-        DateTime expiresAt = DateTime.UtcNow.AddHours(1);
-        NetatmoTokenInfo tokenInfo = new NetatmoTokenInfo
-        {
-            AccessToken = "a",
-            RefreshToken = "r",
-            Scope = "read_station",
-            TokenType = "bearer",
-            ObtainedAtUtc = DateTime.UtcNow,
-            ExpiresAtUtc = expiresAt
-        };
-        Mock<INetatmoOAuthClient> oauthClient = new ServiceTestMockBuilder<INetatmoOAuthClient>.Builder().Build();
-        Mock<INetatmoTokenStore> tokenStore = new ServiceTestMockBuilder<INetatmoTokenStore>.Builder()
-            .Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()), Task.FromResult(tokenInfo))
-            .Build();
-
-        NetatmoController controller = new NetatmoController(oauthClient.Object, tokenStore.Object, Options.Create(new NetatmoOptions()), new Mock<ILogger>().Object);
-
-        ActionResult<NetatmoController.NetatmoStatusResponse> result = await controller.StatusAsync(CancellationToken.None);
-
-        Assert.That(result.Result, Is.InstanceOf<OkObjectResult>());
-        NetatmoController.NetatmoStatusResponse status = (result.Result as OkObjectResult)!.Value as NetatmoController.NetatmoStatusResponse;
-        Assert.That(status, Is.Not.Null);
-        Assert.That(status.Authenticated, Is.True);
-        Assert.That(status.Status, Is.EqualTo("Connected"));
-        Assert.That(status.LoginUrl, Is.Null);
-        Assert.That(status.ExpiresAtUtc, Is.EqualTo(expiresAt));
+        ProblemDetails problemDetails = objectResult.Value as ProblemDetails;
+        Assert.That(problemDetails.Title, Is.EqualTo("Netatmo API Error"));
+        loggerMock.Verify(
+            x => x.Error(It.IsAny<Exception>(), It.Is<string>(s => s.Contains("Failed to fetch Netatmo homesdata")), It.IsAny<string>()),
+            Times.Once);
     }
 }

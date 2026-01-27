@@ -488,3 +488,6 @@ $RECYCLE.BIN/
 
 
 appsettings.Development.json
+# API data directory - ignore all files but keep directory
+weatherStation/API/data/*
+!weatherStation/API/data/.gitkeep

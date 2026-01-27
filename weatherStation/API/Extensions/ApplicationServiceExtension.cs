@@ -2,11 +2,14 @@ using API.Auth.Netatmo.Interface;
 using API.Auth.Netatmo.Options;
 using API.Auth.Netatmo.Services;
 using API.Interface;
+using API.Interface.Logic;
+using API.Logic;
 using API.Options;
 using API.Services;
 using Persistance.Influx;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Options;
 using Serilog;
 
@@ -36,6 +39,8 @@ public static class ApplicationServiceExtension
         services.AddSingleton<IWeatherIngestService, WeatherIngestService>();
         services.AddSingleton<INetatmoTokenStore, NetatmoTokenStore>();
         services.AddHttpClient<INetatmoOAuthClient, NetatmoOAuthClient>();
+        services.AddHttpClient();
+        services.AddSingleton<INetatmoLogicDataProvider, NetatmoLogicDataProvider>();
 
         return services;
     }
