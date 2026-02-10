@@ -97,7 +97,7 @@ public class NetatmoAuthHelperTest
         // Arrange
         Mock<INetatmoTokenStore> tokenStoreMock = new Mock<INetatmoTokenStore>();
         tokenStoreMock.Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync((NetatmoTokenInfo?)null);
+            .ReturnsAsync((NetatmoTokenInfo)null);
 
         string baseUrl = "https://localhost:8080";
 
@@ -127,7 +127,7 @@ public class NetatmoAuthHelperTest
         // Arrange
         Mock<INetatmoTokenStore> tokenStoreMock = new Mock<INetatmoTokenStore>();
         tokenStoreMock.Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync((NetatmoTokenInfo?)null);
+            .ReturnsAsync((NetatmoTokenInfo)null);
 
         string baseUrl = "https://localhost:8080";
 

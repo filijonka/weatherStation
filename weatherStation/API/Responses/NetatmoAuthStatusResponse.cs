@@ -15,7 +15,7 @@ public class NetatmoAuthStatusResponse
     /// <summary>
     /// Gets or sets the access token (null if not authenticated).
     /// </summary>
-    public string? Token { get; set; }
+    public string Token { get; set; }
 
     /// <summary>
     /// Gets or sets the authentication status message.

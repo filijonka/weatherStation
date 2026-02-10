@@ -30,7 +30,7 @@ public class NetatmoControllerTest
         // Arrange
         Mock<INetatmoTokenStore> tokenStoreMock = new Mock<INetatmoTokenStore>();
         tokenStoreMock.Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync((NetatmoTokenInfo?)null);
+            .ReturnsAsync((NetatmoTokenInfo)null);
 
         Mock<INetatmoOAuthClient> oauthClientMock = new Mock<INetatmoOAuthClient>();
         Mock<INetatmoLogicDataProvider> logicDataProviderMock = new Mock<INetatmoLogicDataProvider>();

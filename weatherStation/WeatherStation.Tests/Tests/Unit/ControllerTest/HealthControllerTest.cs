@@ -139,7 +139,7 @@ public class HealthControllerTest
         // Arrange
         Mock<INetatmoTokenStore> tokenStoreMock = new Mock<INetatmoTokenStore>();
         tokenStoreMock.Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync((NetatmoTokenInfo?)null);
+            .ReturnsAsync((NetatmoTokenInfo)null);
 
         NetatmoOptions options = new NetatmoOptions();
         Mock<IOptions<NetatmoOptions>> optionsMock = new Mock<IOptions<NetatmoOptions>>();
@@ -182,7 +182,7 @@ public class HealthControllerTest
         // Arrange
         Mock<INetatmoTokenStore> tokenStoreMock = new Mock<INetatmoTokenStore>();
         tokenStoreMock.Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync((NetatmoTokenInfo?)null);
+            .ReturnsAsync((NetatmoTokenInfo)null);
 
         NetatmoOptions options = new NetatmoOptions
         {

@@ -73,7 +73,7 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
     /// </summary>
     /// <param name="gatewayTypes">Array of gateway types.</param>
     /// <returns>Query string (without leading ?).</returns>
-    private static string BuildHomesDataQueryString(string[]? gatewayTypes)
+    private static string BuildHomesDataQueryString(string[] gatewayTypes)
     {
         if (gatewayTypes == null || gatewayTypes.Length == 0)
         {
