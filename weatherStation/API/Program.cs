@@ -97,10 +97,21 @@ app.UseSwaggerUI(options =>
     }
 });
 
+app.UseCors("CorsPolicy");
+
 app.UseHttpsRedirection();
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+app.UseRouting();
+app.UseResponseCaching();
+
+app.UseAuthorization();
+
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();
 
 /// <summary>
 /// Application entry point.

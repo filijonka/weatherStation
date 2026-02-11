@@ -15,10 +15,10 @@ namespace API.Controllers.v1;
 /// <summary>
 /// Health check endpoints.
 /// </summary>
-[ApiController]
 [ApiVersion("1.0")]
-[Route("api/v{version:apiVersion}/health")]
-public sealed class HealthController : ControllerBase
+[Route("api/v{version:apiVersion}")]
+[ApiController]
+public class HealthController : ControllerBase
 {
     private readonly INetatmoTokenStore tokenStore;
     private readonly IOptions<NetatmoOptions> options;
@@ -41,7 +41,7 @@ public sealed class HealthController : ControllerBase
     /// Returns service health status.
     /// </summary>
     /// <returns>Health response payload.</returns>
-    [HttpGet]
+    [HttpGet("health")]
     public ActionResult GetHealth()
     {
         return this.Ok("Healthy");

@@ -21,7 +21,7 @@ namespace API.Controllers.v1;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/netatmo")]
-public sealed class NetatmoController : ControllerBase
+public class NetatmoController : ControllerBase
 {
     private readonly INetatmoOAuthClient oauthClient;
     private readonly INetatmoTokenStore tokenStore;
@@ -52,7 +52,7 @@ public sealed class NetatmoController : ControllerBase
     /// Starts the Netatmo OAuth login flow.
     /// </summary>
     /// <returns>Redirect result to Netatmo authorization URL.</returns>
-    [HttpGet("login")]
+    [HttpGet("auth/login")]
     public ActionResult Login()
     {
         string state = Guid.NewGuid().ToString("N");
@@ -66,7 +66,7 @@ public sealed class NetatmoController : ControllerBase
     /// <param name="code">Authorization code from Netatmo.</param>
     /// <param name="cancellationToken">Token used to cancel the request.</param>
     /// <returns>Callback response payload.</returns>
-    [HttpGet("callback")]
+    [HttpGet("auth/callback")]
     public async Task<ActionResult> CallbackAsync(
         [FromQuery] string code,
         CancellationToken cancellationToken
