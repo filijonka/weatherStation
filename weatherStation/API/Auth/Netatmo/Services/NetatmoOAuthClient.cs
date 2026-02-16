@@ -10,6 +10,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using System;
+using System.Linq;
+
 namespace API.Auth.Netatmo.Services;
 
 /// <inheritdoc />
@@ -157,13 +159,8 @@ public sealed class NetatmoOAuthClient : INetatmoOAuthClient
     {
         StringBuilder builder = new StringBuilder();
         bool isFirst = true;
-        foreach (KeyValuePair<string, string> pair in query)
+        foreach (KeyValuePair<string, string> pair in query.Where(pair => !string.IsNullOrWhiteSpace(pair.Value)))
         {
-            if (string.IsNullOrWhiteSpace(pair.Value))
-            {
-                continue;
-            }
-
             if (!isFirst)
             {
                 builder.Append('&');
