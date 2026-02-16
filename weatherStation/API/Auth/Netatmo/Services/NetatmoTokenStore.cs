@@ -13,9 +13,8 @@ namespace API.Auth.Netatmo.Services;
 /// <inheritdoc />
 public sealed class NetatmoTokenStore : INetatmoTokenStore
 {
-    private readonly NetatmoOptions options;
+    private readonly IOptions<NetatmoOptions> options;
     private readonly ILogger logger;
-    private readonly string filePath;
     private readonly SemaphoreSlim semaphore;
 
     /// <summary>
@@ -25,9 +24,8 @@ public sealed class NetatmoTokenStore : INetatmoTokenStore
     /// <param name="logger">Serilog logger.</param>
     public NetatmoTokenStore(IOptions<NetatmoOptions> options, ILogger logger)
     {
-        this.options = options.Value;
+        this.options = options;
         this.logger = logger.ForContext<NetatmoTokenStore>();
-        this.filePath = ResolvePath(this.options.TokenFilePath);
         this.semaphore = new SemaphoreSlim(1, 1);
     }
 
@@ -35,10 +33,10 @@ public sealed class NetatmoTokenStore : INetatmoTokenStore
     public async Task SaveAsync(NetatmoTokenInfo tokenInfo, CancellationToken cancellationToken)
     {
         await this.semaphore.WaitAsync(cancellationToken);
+        string filePath = ResolvePath(this.options.Value.TokenFilePath);
         try
         {
-            string directory = Path.GetDirectoryName(this.filePath) ?? string.Empty;
-            this.logger.Information("We get the directory to {data}", this.filePath);
+            string directory = Path.GetDirectoryName(filePath) ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
             {
                 Directory.CreateDirectory(directory);
@@ -50,8 +48,18 @@ public sealed class NetatmoTokenStore : INetatmoTokenStore
             };
 
             string json = JsonSerializer.Serialize(tokenInfo, serializerOptions);
-            await File.WriteAllTextAsync(this.filePath, json, cancellationToken);
-            this.logger.Information("Netatmo tokens stored at {Path}", this.filePath);
+            await File.WriteAllTextAsync(filePath, json, cancellationToken);
+            this.logger.Information("Netatmo tokens stored at {Path}", filePath);
+        }
+        catch (IOException ex)
+        {
+            this.logger.Warning(ex, "Failed to store Netatmo token at {Path}", filePath);
+            throw new InvalidOperationException($"Failed to store Netatmo token at {filePath}");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            this.logger.Warning(ex, "Failed to write Netatmo token at {Path}", filePath);
+            throw new InvalidOperationException($"Failed to store Netatmo token at {filePath}");
         }
         finally
         {
@@ -65,12 +73,13 @@ public sealed class NetatmoTokenStore : INetatmoTokenStore
         await this.semaphore.WaitAsync(cancellationToken);
         try
         {
-            if (!File.Exists(this.filePath))
+            string filePath = ResolvePath(this.options.Value.TokenFilePath);
+            if (!File.Exists(filePath))
             {
                 return null;
             }
 
-            string json = await File.ReadAllTextAsync(this.filePath, cancellationToken);
+            string json = await File.ReadAllTextAsync(filePath, cancellationToken);
             NetatmoTokenInfo tokenInfo = JsonSerializer.Deserialize<NetatmoTokenInfo>(json);
             return tokenInfo;
         }
