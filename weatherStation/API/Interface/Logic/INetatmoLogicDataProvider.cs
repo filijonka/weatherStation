@@ -1,4 +1,4 @@
-using System.Text.Json;
+using Application.Models;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,6 +15,6 @@ public interface INetatmoLogicDataProvider
     /// <param name="accessToken">Netatmo access token.</param>
     /// <param name="gatewayTypes">Optional gateway types filter (NLG, OTH, NBG, BNMH, BNS).</param>
     /// <param name="cancellationToken">Token used to cancel the operation.</param>
-    /// <returns>Raw JSON response as JsonElement.</returns>
-    Task<JsonElement> GetHomesDataAsync(string accessToken, string[] gatewayTypes, CancellationToken cancellationToken);
+    /// <returns>Deserialized Netatmo homesdata response.</returns>
+    Task<JsonHome> GetHomesDataAsync(string accessToken, string[] gatewayTypes, CancellationToken cancellationToken);
 }
