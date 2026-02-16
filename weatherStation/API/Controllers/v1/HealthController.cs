@@ -56,7 +56,11 @@ public class HealthController : ControllerBase
     [HttpGet("netatmo")]
     public async Task<ActionResult<NetatmoAuthStatusResponse>> GetNetatmoStatusAsync(CancellationToken cancellationToken)
     {
-        string baseUrl = (this.options.Value.ApiBaseUrl ?? string.Empty).Trim().TrimEnd('/');
+        string baseUrl = "";
+        if (!string.IsNullOrEmpty(this.options.Value.ApiBaseUrl))
+        {
+            baseUrl = this.options.Value.ApiBaseUrl.Trim().TrimEnd('/');
+        }
         if (string.IsNullOrEmpty(baseUrl))
         {
             baseUrl = $"{this.Request.Scheme}://{this.Request.Host}";
