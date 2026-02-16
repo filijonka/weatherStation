@@ -1,12 +1,14 @@
 using API.Auth.Netatmo.Options;
 using API.Interface.Logic;
 
+using Application.Models;
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 using Serilog;
 using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -37,7 +39,7 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
     }
 
     /// <inheritdoc />
-    public async Task<JsonElement> GetHomesDataAsync(
+    public async Task<JsonHome> GetHomesDataAsync(
         string accessToken,
         string[] gatewayTypes,
         CancellationToken cancellationToken
@@ -64,8 +66,21 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
             throw new HttpRequestException($"Netatmo API request failed with status {response.StatusCode}: {responseBody}");
         }
 
-        using JsonDocument jsonDoc = JsonDocument.Parse(responseBody);
-        return jsonDoc.RootElement.Clone();
+        JsonSerializerSettings settings = new JsonSerializerSettings
+        {
+            ContractResolver = new DefaultContractResolver
+            {
+                NamingStrategy = new SnakeCaseNamingStrategy()
+            }
+        };
+
+        JsonHome jsonHome = JsonConvert.DeserializeObject<JsonHome>(responseBody, settings);
+        if (jsonHome == null)
+        {
+            throw new InvalidOperationException("Failed to deserialize Netatmo homesdata response.");
+        }
+
+        return jsonHome;
     }
 
     /// <summary>
