@@ -14,6 +14,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -116,6 +117,7 @@ await app.RunAsync();
 /// <summary>
 /// Application entry point.
 /// </summary>
+[ExcludeFromCodeCoverage]
 internal static partial class Program
 {
 }
