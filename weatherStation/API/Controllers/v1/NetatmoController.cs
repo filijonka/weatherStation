@@ -4,10 +4,10 @@ using API.Helpers;
 using API.Interface.Logic;
 
 using Asp.Versioning;
+using Application.Models;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using API.Responses;
@@ -105,7 +105,7 @@ public class NetatmoController : ControllerBase
     /// <param name="cancellationToken">Token used to cancel the request.</param>
     /// <returns>Home data JSON response.</returns>
     [HttpGet("homesdata")]
-    public async Task<ActionResult<NetatmoAuthStatusResponse>> GetHomesDataAsync(
+    public async Task<ActionResult<ApiResponse<JsonHome>>> GetHomesDataAsync(
         [FromQuery] string gatewayTypes,
         CancellationToken cancellationToken
     )
@@ -119,7 +119,14 @@ public class NetatmoController : ControllerBase
 
         if (!authStatus.Authenticated)
         {
-            return authStatus;
+            return this.Unauthorized(new ApiResponse<JsonHome>
+            {
+                IsSuccess = false,
+                IsAuthenticated = false,
+                LoginUrl = authStatus.LoginUrl,
+                Error = "Not authenticated.",
+                Data = new JsonHome()
+            });
         }
 
         string[] gatewayTypesArray = null;
@@ -134,21 +141,44 @@ public class NetatmoController : ControllerBase
 
         try
         {
-            JsonElement jsonElement = await this.logicDataProvider.GetHomesDataAsync(
+            JsonHome jsonHome = await this.logicDataProvider.GetHomesDataAsync(
                 authStatus.Token,
                 gatewayTypesArray,
                 cancellationToken
             );
 
-            return new JsonResult(jsonElement);
+            if (jsonHome == null || !jsonHome.IsValid())
+            {
+                this.logger.Warning("Netatmo homesdata returned an empty payload.");
+                return this.StatusCode(502, new ApiResponse<JsonHome>
+                {
+                    IsSuccess = false,
+                    IsAuthenticated = true,
+                    LoginUrl = string.Empty,
+                    Error = "No home data was returned. Please try again later.",
+                    Data = new JsonHome()
+                });
+            }
+
+            return this.Ok(new ApiResponse<JsonHome>
+            {
+                IsSuccess = true,
+                IsAuthenticated = true,
+                LoginUrl = string.Empty,
+                Error = string.Empty,
+                Data = jsonHome
+            });
         }
         catch (Exception ex)
         {
             this.logger.Error(ex, "Failed to fetch Netatmo homesdata: {Message}", ex.Message);
-            return this.StatusCode(502, new ProblemDetails
+            return this.StatusCode(502, new ApiResponse<JsonHome>
             {
-                Title = "Netatmo API Error",
-                Detail = "Failed to retrieve home data from Netatmo. Please try again later."
+                IsSuccess = false,
+                IsAuthenticated = true,
+                LoginUrl = string.Empty,
+                Error = "Failed to retrieve home data from Netatmo. Please try again later.",
+                Data = new JsonHome()
             });
         }
     }
