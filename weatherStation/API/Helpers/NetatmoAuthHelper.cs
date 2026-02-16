@@ -22,12 +22,13 @@ public static class NetatmoAuthHelper
     public static async Task<NetatmoAuthStatusResponse> GetAuthStatusAsync(
         INetatmoTokenStore tokenStore,
         string baseUrl,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         NetatmoTokenInfo tokenInfo = await tokenStore.LoadAsync(cancellationToken);
         bool authenticated = tokenInfo != null && tokenInfo.ExpiresAtUtc > DateTime.UtcNow;
         string status = authenticated ? "Connected" : "Login required";
-        string loginUrl = authenticated ? string.Empty : $"{baseUrl}/api/v1/netatmo/login";
+        string loginUrl = authenticated ? string.Empty : $"{baseUrl}/api/v1/netatmo/auth/login";
         DateTime? expiresAtUtc = authenticated ? tokenInfo!.ExpiresAtUtc : null;
         
         int statusCode = authenticated ? 200 : 401;
