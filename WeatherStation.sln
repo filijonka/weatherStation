@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -21,6 +21,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{B1C2
 	ProjectSection(SolutionItems) = preProject
 		.github\workflows\test.yml = .github\workflows\test.yml
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Application", "weatherStation\Application\Application.csproj", "{7379B0CF-2CBD-4E69-B4BF-81C052CBE1BE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -68,6 +70,18 @@ Global
 		{A2766141-1980-4D8B-A5A8-B0B2613132B5}.Release|x64.Build.0 = Release|Any CPU
 		{A2766141-1980-4D8B-A5A8-B0B2613132B5}.Release|x86.ActiveCfg = Release|Any CPU
 		{A2766141-1980-4D8B-A5A8-B0B2613132B5}.Release|x86.Build.0 = Release|Any CPU
+		{7379B0CF-2CBD-4E69-B4BF-81C052CBE1BE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7379B0CF-2CBD-4E69-B4BF-81C052CBE1BE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7379B0CF-2CBD-4E69-B4BF-81C052CBE1BE}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7379B0CF-2CBD-4E69-B4BF-81C052CBE1BE}.Debug|x64.Build.0 = Debug|Any CPU
+		{7379B0CF-2CBD-4E69-B4BF-81C052CBE1BE}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7379B0CF-2CBD-4E69-B4BF-81C052CBE1BE}.Debug|x86.Build.0 = Debug|Any CPU
+		{7379B0CF-2CBD-4E69-B4BF-81C052CBE1BE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7379B0CF-2CBD-4E69-B4BF-81C052CBE1BE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7379B0CF-2CBD-4E69-B4BF-81C052CBE1BE}.Release|x64.ActiveCfg = Release|Any CPU
+		{7379B0CF-2CBD-4E69-B4BF-81C052CBE1BE}.Release|x64.Build.0 = Release|Any CPU
+		{7379B0CF-2CBD-4E69-B4BF-81C052CBE1BE}.Release|x86.ActiveCfg = Release|Any CPU
+		{7379B0CF-2CBD-4E69-B4BF-81C052CBE1BE}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -77,5 +91,6 @@ Global
 		{3FBEB427-E119-47EC-B737-E113A63B16EF} = {271E7909-CEFF-ECD7-129E-DE9139C7E30C}
 		{A2766141-1980-4D8B-A5A8-B0B2613132B5} = {271E7909-CEFF-ECD7-129E-DE9139C7E30C}
 		{8A46F8E8-E3A2-44A9-A8AB-5A48B289C33F} = {271E7909-CEFF-ECD7-129E-DE9139C7E30C}
+		{7379B0CF-2CBD-4E69-B4BF-81C052CBE1BE} = {271E7909-CEFF-ECD7-129E-DE9139C7E30C}
 	EndGlobalSection
 EndGlobal

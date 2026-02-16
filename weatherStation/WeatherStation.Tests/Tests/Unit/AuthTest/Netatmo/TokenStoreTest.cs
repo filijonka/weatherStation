@@ -7,6 +7,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Moq;
 
 namespace WeatherStation.Tests.Tests.Unit.AuthTest.Netatmo;
 
@@ -48,17 +49,73 @@ public class TokenStoreTest
         NetatmoTokenInfo loaded = await store.LoadAsync(CancellationToken.None);
 
         Assert.That(loaded, Is.Not.Null);
-        Assert.That(loaded.AccessToken, Is.EqualTo("access"));
-        Assert.That(loaded.RefreshToken, Is.EqualTo("refresh"));
-        Assert.That(loaded.Scope, Is.EqualTo("read_station"));
-        Assert.That(loaded.TokenType, Is.EqualTo("bearer"));
-        Assert.That(loaded.ObtainedAtUtc, Is.EqualTo(new DateTime(2026, 1, 20, 10, 0, 0, DateTimeKind.Utc)));
-        Assert.That(loaded.ExpiresAtUtc, Is.EqualTo(new DateTime(2026, 1, 20, 13, 0, 0, DateTimeKind.Utc)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(loaded.AccessToken, Is.EqualTo("access"));
+            Assert.That(loaded.RefreshToken, Is.EqualTo("refresh"));
+            Assert.That(loaded.Scope, Is.EqualTo("read_station"));
+            Assert.That(loaded.TokenType, Is.EqualTo("bearer"));
+            Assert.That(loaded.ObtainedAtUtc, Is.EqualTo(new DateTime(2026, 1, 20, 10, 0, 0, DateTimeKind.Utc)));
+            Assert.That(loaded.ExpiresAtUtc, Is.EqualTo(new DateTime(2026, 1, 20, 13, 0, 0, DateTimeKind.Utc)));
+        });
 
         if (Directory.Exists(tempDirectory))
         {
             Directory.Delete(tempDirectory, true);
         }
+    }
+
+    [Test]
+    public void Test_SaveAndLoad_PersistsToken_InvalidPath()
+    {
+        NetatmoOptions options = new NetatmoOptions
+        {
+            TokenFilePath = "/"
+        };
+
+        IOptions<NetatmoOptions> optionsWrapper = Options.Create(options);
+        ILogger logger = new LoggerConfiguration().CreateLogger();
+        NetatmoTokenStore store = new NetatmoTokenStore(optionsWrapper, logger);
+
+        NetatmoTokenInfo tokenInfo = new NetatmoTokenInfo
+        {
+            AccessToken = "access",
+            RefreshToken = "refresh",
+            Scope = "read_station",
+            TokenType = "bearer",
+            ObtainedAtUtc = new DateTime(2026, 1, 20, 10, 0, 0, DateTimeKind.Utc),
+            ExpiresAtUtc = new DateTime(2026, 1, 20, 13, 0, 0, DateTimeKind.Utc)
+        };
+
+        InvalidOperationException ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await store.SaveAsync(tokenInfo, CancellationToken.None));
+        Assert.That(ex, Is.Not.Null);
+        Assert.That(ex.Message, Is.EqualTo("Failed to store Netatmo token at /"));
+    }
+
+    [Test]
+    public void Test_SaveAndLoad_PersistsToken_NoPath()
+    {
+        NetatmoOptions options = new NetatmoOptions
+        {
+            TokenFilePath = ""
+        };
+
+        IOptions<NetatmoOptions> optionsWrapper = Options.Create(options);
+        ILogger logger = new LoggerConfiguration().CreateLogger();
+        NetatmoTokenStore store = new NetatmoTokenStore(optionsWrapper, logger);
+
+        NetatmoTokenInfo tokenInfo = new NetatmoTokenInfo
+        {
+            AccessToken = "access",
+            RefreshToken = "refresh",
+            Scope = "read_station",
+            TokenType = "bearer",
+            ObtainedAtUtc = new DateTime(2026, 1, 20, 10, 0, 0, DateTimeKind.Utc),
+            ExpiresAtUtc = new DateTime(2026, 1, 20, 13, 0, 0, DateTimeKind.Utc)
+        };
+
+        InvalidOperationException ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await store.SaveAsync(tokenInfo, CancellationToken.None));
+
     }
 
     /// <summary>

@@ -58,7 +58,7 @@ public class HealthControllerTest
         );
 
         // Setup HttpContext for Request.Scheme and Request.Host
-        controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
             {
@@ -75,11 +75,14 @@ public class HealthControllerTest
 
         // Assert
         Assert.That(result.Value, Is.Not.Null);
-        Assert.That(result.Value.Authenticated, Is.True);
-        Assert.That(result.Value.StatusCode, Is.EqualTo(200));
-        Assert.That(result.Value.Status, Is.EqualTo("Connected"));
-        Assert.That(result.Value.Token, Is.EqualTo("test-token"));
-        Assert.That(result.Value.LoginUrl, Is.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value.Authenticated, Is.True);
+            Assert.That(result.Value.StatusCode, Is.EqualTo(200));
+            Assert.That(result.Value.Status, Is.EqualTo("Connected"));
+            Assert.That(result.Value.Token, Is.EqualTo("test-token"));
+            Assert.That(result.Value.LoginUrl, Is.Empty);
+        });
     }
 
     [Test]
@@ -106,7 +109,7 @@ public class HealthControllerTest
         );
 
         // Setup HttpContext
-        controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
             {
@@ -123,11 +126,14 @@ public class HealthControllerTest
 
         // Assert
         Assert.That(result.Value, Is.Not.Null);
-        Assert.That(result.Value.Authenticated, Is.False);
-        Assert.That(result.Value.StatusCode, Is.EqualTo(401));
-        Assert.That(result.Value.Status, Is.EqualTo("Login required"));
-        Assert.That(result.Value.LoginUrl, Is.EqualTo("http://localhost:8080/api/v1/netatmo/login"));
-        Assert.That(result.Value.Message, Is.Not.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value.Authenticated, Is.False);
+            Assert.That(result.Value.StatusCode, Is.EqualTo(401));
+            Assert.That(result.Value.Status, Is.EqualTo("Login required"));
+            Assert.That(result.Value.LoginUrl, Is.EqualTo("http://localhost:8080/api/v1/netatmo/auth/login"));
+            Assert.That(result.Value.Message, Is.Not.Empty);
+        });
     }
 
     /// <summary>
@@ -151,7 +157,7 @@ public class HealthControllerTest
         );
 
         // Setup HttpContext
-        controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
             {
@@ -170,7 +176,7 @@ public class HealthControllerTest
         Assert.That(result.Value, Is.Not.Null);
         Assert.That(result.Value.Authenticated, Is.False);
         Assert.That(result.Value.StatusCode, Is.EqualTo(401));
-        Assert.That(result.Value.LoginUrl, Is.EqualTo("http://localhost:8080/api/v1/netatmo/login"));
+        Assert.That(result.Value.LoginUrl, Is.EqualTo("http://localhost:8080/api/v1/netatmo/auth/login"));
     }
 
     /// <summary>
@@ -197,7 +203,7 @@ public class HealthControllerTest
         );
 
         // Setup HttpContext (should not be used when ApiBaseUrl is set)
-        controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
             {
@@ -214,6 +220,47 @@ public class HealthControllerTest
 
         // Assert
         Assert.That(result.Value, Is.Not.Null);
-        Assert.That(result.Value.LoginUrl, Is.EqualTo("https://api.example.com/api/v1/netatmo/login"));
+        Assert.That(result.Value.LoginUrl, Is.EqualTo("https://api.example.com/api/v1/netatmo/auth/login"));
+    }
+
+    [Test]
+    public async Task Test_GetNetatmoStatusAsync_WhenApiBaseUrlProvided_ButEmpty()
+    {
+        // Arrange
+        Mock<INetatmoTokenStore> tokenStoreMock = new Mock<INetatmoTokenStore>();
+        tokenStoreMock.Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((NetatmoTokenInfo)null);
+
+        NetatmoOptions options = new NetatmoOptions
+        {
+            ApiBaseUrl = ""
+        };
+        Mock<IOptions<NetatmoOptions>> optionsMock = new Mock<IOptions<NetatmoOptions>>();
+        optionsMock.Setup(o => o.Value).Returns(options);
+
+        HealthController controller = new HealthController(
+            tokenStoreMock.Object,
+            optionsMock.Object
+        );
+
+        // Setup HttpContext (should not be used when ApiBaseUrl is set)
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                Request =
+                {
+                    Scheme = "http",
+                    Host = new HostString("localhost:8080")
+                }
+            }
+        };
+
+        // Act
+        ActionResult<NetatmoAuthStatusResponse> result = await controller.GetNetatmoStatusAsync(CancellationToken.None);
+
+        // Assert
+        Assert.That(result.Value, Is.Not.Null);
+        Assert.That(result.Value.LoginUrl, Is.EqualTo("http://localhost:8080/api/v1/netatmo/auth/login"));
     }
 }

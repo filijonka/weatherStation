@@ -83,7 +83,7 @@ public class NetatmoAuthHelperTest
         Assert.That(result.StatusCode, Is.EqualTo(401));
         Assert.That(result.Status, Is.EqualTo("Login required"));
         Assert.That(result.Token, Is.EqualTo(""));
-        Assert.That(result.LoginUrl, Is.EqualTo("https://localhost:8080/api/v1/netatmo/login"));
+        Assert.That(result.LoginUrl, Is.EqualTo("https://localhost:8080/api/v1/netatmo/auth/login"));
         Assert.That(result.ExpiresAtUtc, Is.Null);
         Assert.That(result.Message, Is.EqualTo("Netatmo authentication required. Please log in first."));
     }
@@ -113,7 +113,7 @@ public class NetatmoAuthHelperTest
         Assert.That(result.StatusCode, Is.EqualTo(401));
         Assert.That(result.Status, Is.EqualTo("Login required"));
         Assert.That(result.Token, Is.EqualTo(""));
-        Assert.That(result.LoginUrl, Is.EqualTo("https://localhost:8080/api/v1/netatmo/login"));
+        Assert.That(result.LoginUrl, Is.EqualTo("https://localhost:8080/api/v1/netatmo/auth/login"));
         Assert.That(result.ExpiresAtUtc, Is.Null);
         Assert.That(result.Message, Is.EqualTo("Netatmo authentication required. Please log in first."));
     }
@@ -138,7 +138,7 @@ public class NetatmoAuthHelperTest
             CancellationToken.None);
 
         // Assert
-        Assert.That(result.LoginUrl, Is.EqualTo("https://localhost:8080/api/v1/netatmo/login"));
+        Assert.That(result.LoginUrl, Is.EqualTo("https://localhost:8080/api/v1/netatmo/auth/login"));
     }
 
     /// <summary>

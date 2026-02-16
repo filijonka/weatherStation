@@ -64,7 +64,7 @@ public class OAuthClientTest : TestBase
         ILogger logger = new LoggerConfiguration().CreateLogger();
         NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, optionsWrapper, logger);
 
-        string state = "test-state-123";
+        const string state = "test-state-123";
         string url = client.BuildAuthorizeUrl(state);
 
         Assert.That(url, Does.Contain("client_id=test-client-id"));
@@ -90,6 +90,21 @@ public class OAuthClientTest : TestBase
         string url = client.BuildAuthorizeUrl("state");
 
         Assert.That(url, Does.Contain("scope=read_station%20read_thermostat"));
+    }
+
+    [Test]
+    public void Test_BuildAuthorizeUrl_CollapsesExtraSpacesInScopes()
+    {
+        this.options.Scopes = "read_station,  read_thermostat";
+        IOptions<NetatmoOptions> optionsWrapper = Options.Create(this.options);
+        Mock<ILogger> logger = new Mock<ILogger>();
+        logger.Setup(l => l.ForContext<NetatmoOAuthClient>()).Returns(logger.Object);
+        NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, optionsWrapper, logger.Object);
+
+        string url = client.BuildAuthorizeUrl("state");
+
+        Assert.That(url, Does.Contain("scope=read_station%20read_thermostat"));
+        Assert.That(url, Does.Not.Contain("scope=read_station%20%20read_thermostat"));
     }
 
     /// <summary>

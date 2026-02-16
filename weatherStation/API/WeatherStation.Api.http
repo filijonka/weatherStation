@@ -10,7 +10,7 @@ Accept: application/json
 
 ###
 
-GET {{Api_HostAddress}}/api/netatmo/login
+GET {{Api_HostAddress}}/api/v1/netatmo/auth/login
 Accept: application/json
 
 ###

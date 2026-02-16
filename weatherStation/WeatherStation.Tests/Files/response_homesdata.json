@@ -1,0 +1,110 @@
+{
+  "body": {
+    "homes": [
+      {
+        "id": "home_test_001",
+        "name": "Test Home",
+        "altitude": 123,
+        "coordinates": [
+          -122.4194,
+          37.7749
+        ],
+        "country": "US",
+        "timezone": "Etc/UTC",
+        "rooms": [
+          {
+            "id": "room_test_entrance",
+            "name": "Entrance",
+            "type": "custom"
+          },
+          {
+            "id": "room_test_outdoor",
+            "name": "Outdoor",
+            "type": "outdoor",
+            "module_ids": [
+              "AA:BB:CC:00:00:01",
+              "AA:BB:CC:00:00:02",
+              "AA:BB:CC:00:00:03"
+            ]
+          },
+          {
+            "id": "room_test_bedroom",
+            "name": "Bedroom",
+            "type": "custom",
+            "module_ids": [
+              "AA:BB:CC:00:00:04"
+            ]
+          },
+          {
+            "id": "room_test_living",
+            "name": "Living room",
+            "type": "livingroom",
+            "module_ids": [
+              "AA:BB:CC:00:00:10"
+            ]
+          }
+        ],
+        "modules": [
+          {
+            "id": "AA:BB:CC:00:00:10",
+            "type": "NAMain",
+            "name": "Main",
+            "setup_date": 1716408777,
+            "room_id": "room_test_living",
+            "modules_bridged": [
+              "AA:BB:CC:00:00:01",
+              "AA:BB:CC:00:00:02",
+              "AA:BB:CC:00:00:03",
+              "AA:BB:CC:00:00:04"
+            ]
+          },
+          {
+            "id": "AA:BB:CC:00:00:01",
+            "type": "NAModule1",
+            "name": "Outdoor Module",
+            "setup_date": 1716408777,
+            "room_id": "room_test_outdoor",
+            "bridge": "AA:BB:CC:00:00:10"
+          },
+          {
+            "id": "AA:BB:CC:00:00:02",
+            "type": "NAModule3",
+            "name": "Rain Gauge",
+            "setup_date": 1716408777,
+            "room_id": "room_test_outdoor",
+            "bridge": "AA:BB:CC:00:00:10"
+          },
+          {
+            "id": "AA:BB:CC:00:00:03",
+            "type": "NAModule2",
+            "name": "Anemometer",
+            "setup_date": 1716408777,
+            "room_id": "room_test_outdoor",
+            "bridge": "AA:BB:CC:00:00:10"
+          },
+          {
+            "id": "AA:BB:CC:00:00:04",
+            "type": "NAModule4",
+            "name": "Bedroom",
+            "setup_date": 1756550725,
+            "room_id": "room_test_bedroom",
+            "bridge": "AA:BB:CC:00:00:10"
+          }
+        ]
+      }
+    ],
+    "user": {
+      "email": "user@example.invalid",
+      "language": "en-US",
+      "locale": "en-US",
+      "feel_like_algorithm": 0,
+      "unit_pressure": 0,
+      "unit_system": 0,
+      "unit_wind": 2,
+      "id": "user_test_001"
+    }
+  },
+  "status": "ok",
+  "time_exec": 0.16848993301391602,
+  "time_server": 1700000000
+}
