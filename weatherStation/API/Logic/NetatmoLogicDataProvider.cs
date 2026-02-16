@@ -7,8 +7,10 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -95,8 +97,17 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
             return string.Empty;
         }
 
-        System.Text.StringBuilder builder = new System.Text.StringBuilder();
-        bool isFirst = true;
+        HashSet<string> allowed = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "NLG",
+            "OTH",
+            "NBG",
+            "BNMH",
+            "BNS"
+        };
+
+        HashSet<string> selected = new(StringComparer.OrdinalIgnoreCase);
+
         foreach (string gatewayType in gatewayTypes)
         {
             if (string.IsNullOrWhiteSpace(gatewayType))
@@ -104,16 +115,47 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
                 continue;
             }
 
+            string normalized = gatewayType.Trim();
+
+            // Basic length guard to avoid absurdly long values.
+            if (normalized.Length > 16)
+            {
+                continue;
+            }
+
+            if (!allowed.Contains(normalized))
+            {
+                continue;
+            }
+
+            selected.Add(normalized.ToUpperInvariant());
+
+            // Safety cap
+            if (selected.Count >= 10)
+            {
+                break;
+            }
+        }
+
+        if (selected.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        StringBuilder builder = new StringBuilder();
+        bool isFirst = true;
+
+        foreach (string gt in selected)
+        {
             if (!isFirst)
             {
                 builder.Append('&');
             }
 
             builder.Append("gateway_types=");
-            builder.Append(Uri.EscapeDataString(gatewayType));
+            builder.Append(Uri.EscapeDataString(gt));
             isFirst = false;
         }
-
         return builder.ToString();
     }
 
