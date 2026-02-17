@@ -5,6 +5,7 @@ using Serilog;
 using System;
 using System.Threading;
 using Persistance.Influx;
+using Persistence.Influx;
 
 namespace WeatherStation.Tests.Tests.Unit.ServiceTest;
 

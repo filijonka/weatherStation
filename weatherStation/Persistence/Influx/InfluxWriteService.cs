@@ -1,5 +1,3 @@
-using Persistance.Models;
-
 using InfluxDB.Client.Api.Domain;
 using InfluxDB.Client.Writes;
 using InfluxDB.Client;
@@ -8,6 +6,9 @@ using Serilog;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Threading;
+using Persistence.Influx;
+using Persistence.Models;
+
 namespace Persistance.Influx;
 
 /// <inheritdoc />
@@ -42,25 +43,7 @@ public sealed class InfluxWriteService : IInfluxWriteService
             return 0;
         }
 
-        List<PointData> points = new List<PointData>(readings.Count);
-        foreach (WeatherReading reading in readings)
-        {
-            PointData point = PointData
-                .Measurement("weather_reading")
-                .Tag("stationId", reading.StationId)
-                .Tag("sensor", reading.Sensor)
-                .Tag("unit", reading.Unit)
-                .Field("value", reading.Value)
-                .Timestamp(reading.Timestamp.ToUniversalTime(), WritePrecision.Ns);
 
-            points.Add(point);
-        }
-
-        this.logger.Information("Writing {Count} readings to InfluxDB bucket {Bucket}", points.Count, this.options.Bucket);
-
-        IWriteApiAsync writeApi = this.influxClientFactory.GetWriteClient().GetWriteApiAsync();
-        await writeApi.WritePointsAsync(points, this.options.Bucket, this.options.Org, cancellationToken);
-
-        return points.Count;
+        return 0;
     }
 }

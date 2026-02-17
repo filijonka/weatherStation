@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using System.Collections.Generic;
 using System.Linq;
+using Persistence.Influx;
 
 namespace WeatherStation.Tests.Tests.Unit.ExtensionTest;
 
@@ -33,8 +34,8 @@ public class ApplicationServiceExtensionTest : TestBase
 
         Assert.Multiple(() =>
         {
-            Assert.That(services.Any(s => s.ServiceType == typeof(Persistance.Influx.IInfluxClientFactory)), Is.True);
-            Assert.That(services.Any(s => s.ServiceType == typeof(Persistance.Influx.IInfluxWriteService)), Is.True);
+            Assert.That(services.Any(s => s.ServiceType == typeof(IInfluxClientFactory)), Is.True);
+            Assert.That(services.Any(s => s.ServiceType == typeof(IInfluxWriteService)), Is.True);
             Assert.That(services.Any(s => s.ServiceType == typeof(API.Interface.IWeatherIngestService)), Is.True);
             Assert.That(services.Any(s => s.ServiceType == typeof(API.Auth.Netatmo.Interface.INetatmoTokenStore)), Is.True);
             Assert.That(services.Any(s => s.ServiceType == typeof(API.Auth.Netatmo.Interface.INetatmoOAuthClient)), Is.True);

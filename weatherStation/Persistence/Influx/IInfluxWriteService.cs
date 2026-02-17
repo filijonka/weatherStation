@@ -1,9 +1,9 @@
-using Persistance.Models;
-
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using System.Threading;
-namespace Persistance.Influx;
+using System.Threading.Tasks;
+using Persistence.Models;
+
+namespace Persistence.Influx;
 
 /// <summary>
 /// Writes weather readings to InfluxDB.

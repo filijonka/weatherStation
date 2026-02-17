@@ -5,6 +5,7 @@ using Persistance.Influx;
 using Serilog;
 using System.Threading.Tasks;
 using System.Threading;
+using Persistence.Influx;
 
 namespace API.Services;
 

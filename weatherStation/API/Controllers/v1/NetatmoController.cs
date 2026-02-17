@@ -66,7 +66,7 @@ public class NetatmoController : ControllerBase
     /// <param name="code">Authorization code from Netatmo.</param>
     /// <param name="cancellationToken">Token used to cancel the request.</param>
     /// <returns>Callback response payload.</returns>
-    [HttpGet("auth/callback")]
+    [HttpGet("callback")]
     public async Task<ActionResult> CallbackAsync(
         [FromQuery] string code,
         CancellationToken cancellationToken

@@ -1,5 +1,6 @@
 using System;
-namespace Persistance.Models;
+
+namespace Persistence.Models;
 
 /// <summary>
 /// Normalized weather reading persisted to storage.

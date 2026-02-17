@@ -1,5 +1,6 @@
-using InfluxDB.Client;
-namespace Persistance.Influx;
+using Persistance.Influx;
+
+namespace Persistence.Influx;
 
 /// <summary>
 /// Factory for creating or retrieving InfluxDB clients.
