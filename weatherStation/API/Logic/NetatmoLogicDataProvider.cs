@@ -1,4 +1,5 @@
 using API.Auth.Netatmo.Options;
+using API.Exceptions;
 using API.Interface.Logic;
 
 using Application.Models;
@@ -8,6 +9,7 @@ using Newtonsoft.Json.Serialization;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -83,6 +85,70 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
         }
 
         return jsonHome;
+    }
+
+    /// <inheritdoc />
+    public async Task<JsonStationData> GetModuleDataAsync(
+        string accessToken,
+        string moduleId,
+        CancellationToken cancellationToken
+    )
+    {
+        string apiBaseUrl = GetApiBaseUrl();
+        string endpoint = $"{apiBaseUrl}/api/getstationsdata?device_id={Uri.EscapeDataString(moduleId)}";
+
+        using HttpClient httpClient = this.httpClientFactory.CreateClient();
+        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        HttpResponseMessage response = await httpClient.GetAsync(endpoint, cancellationToken);
+        string responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            try
+            {
+                NetatmoError netatmoError = JsonConvert.DeserializeObject<NetatmoError>(responseBody);
+
+                this.logger.Error(
+                    "Netatmo returned 400. Code: {Code}. Message: {Message}",
+                    netatmoError.ErrorType.Code,
+                    netatmoError.ErrorType.Message
+                );
+
+                throw new NetatmoBadRequestException(netatmoError.ErrorType.Code, netatmoError.ErrorType.Message);
+            }
+            catch (JsonException ex)
+            {
+                this.logger.Warning(ex, "Failed to deserialize Netatmo 400 error payload. Body: {Body}", responseBody);
+                throw new NetatmoBadRequestException(-1, "Netatmo request was rejected.");
+            }
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            this.logger.Warning(
+                "Netatmo getstationsdata request failed: {StatusCode} {Body}",
+                response.StatusCode,
+                responseBody
+            );
+            throw new HttpRequestException($"Netatmo API request failed with status {response.StatusCode}: {responseBody}");
+        }
+
+        JsonSerializerSettings settings = new JsonSerializerSettings
+        {
+            ContractResolver = new DefaultContractResolver
+            {
+                NamingStrategy = new SnakeCaseNamingStrategy()
+            }
+        };
+
+        JsonStationData jsonStationData = JsonConvert.DeserializeObject<JsonStationData>(responseBody, settings);
+        if (jsonStationData == null)
+        {
+            throw new InvalidOperationException("Failed to deserialize Netatmo getstationsdata response.");
+        }
+
+        return jsonStationData;
     }
 
     /// <summary>

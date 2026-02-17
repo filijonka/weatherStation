@@ -1,4 +1,5 @@
 using API.Auth.Netatmo.Options;
+using API.Exceptions;
 using API.Logic;
 
 using Microsoft.Extensions.Options;
@@ -74,6 +75,314 @@ public class NetatmoLogicDataProviderDeserializationTest
 
         Module moduleWithBridge = home.Modules.Find(m => !string.IsNullOrWhiteSpace(m.Bridge));
         Assert.That(moduleWithBridge, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task Test_GetModuleDataAsync_Deserializes_RealFixture()
+    {
+        string fixturePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Files", "response_stationdata.json");
+        string responseBody = await File.ReadAllTextAsync(fixturePath, CancellationToken.None);
+
+        using HttpClient httpClient = new HttpClient(new StubHttpMessageHandler(responseBody))
+        {
+            BaseAddress = new Uri("https://api.netatmo.com")
+        };
+
+        Mock<IHttpClientFactory> httpClientFactoryMock = new Mock<IHttpClientFactory>();
+        httpClientFactoryMock
+            .Setup(f => f.CreateClient(It.IsAny<string>()))
+            .Returns(httpClient);
+
+        NetatmoOptions netatmoOptions = new NetatmoOptions
+        {
+            TokenUrl = "https://api.netatmo.com/oauth2/token"
+        };
+
+        IOptions<NetatmoOptions> optionsWrapper = Options.Create(netatmoOptions);
+        ILogger logger = new LoggerConfiguration().CreateLogger();
+
+        NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
+            httpClientFactoryMock.Object,
+            optionsWrapper,
+            logger
+        );
+
+        JsonStationData result = await provider.GetModuleDataAsync(
+            accessToken: "access-token",
+            moduleId: "AA:BB:CC:00:00:10",
+            cancellationToken: CancellationToken.None
+        );
+
+        Assert.That(result, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Status, Is.EqualTo("ok"));
+            Assert.That(result.Body, Is.Not.Null);
+        });
+
+        Assert.That(result.Body.Devices, Is.Not.Null);
+        Assert.That(result.Body.Devices.Count, Is.GreaterThanOrEqualTo(1));
+
+        Device device = result.Body.Devices[0];
+        Assert.That(device.Id, Is.Not.Empty);
+        Assert.That(device.Modules, Is.Not.Null);
+        Assert.That(device.Modules.Count, Is.GreaterThanOrEqualTo(1));
+        Assert.That(device.Modules[0].Id, Is.Not.Empty);
+    }
+
+    [Test]
+    public async Task Test_GetModuleDataAsync_BuildsDeviceIdQueryAndSetsBearer()
+    {
+        HttpRequestMessage capturedRequest = null;
+
+        string okJson = JsonConvert.SerializeObject(new
+        {
+            status = "ok",
+            body = new
+            {
+                devices = new[]
+                {
+                    new
+                    {
+                        _id = "AA:BB:CC:00:00:10",
+                        dashboard_data = new { time_utc = 1 },
+                        modules = Array.Empty<object>()
+                    }
+                }
+            },
+            time_exec = 0.1,
+            time_server = 123
+        });
+
+        Mock<HttpMessageHandler> mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) => capturedRequest = req)
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(okJson)
+            });
+
+        HttpClient httpClient = new HttpClient(mockHandler.Object);
+
+        Mock<IHttpClientFactory> httpClientFactoryMock = new Mock<IHttpClientFactory>();
+        httpClientFactoryMock
+            .Setup(f => f.CreateClient(It.IsAny<string>()))
+            .Returns(httpClient);
+
+        IOptions<NetatmoOptions> options = Options.Create(new NetatmoOptions
+        {
+            TokenUrl = "https://api.netatmo.com/oauth2/token"
+        });
+
+        ILogger logger = new LoggerConfiguration().CreateLogger();
+        NetatmoLogicDataProvider sut = new NetatmoLogicDataProvider(
+            httpClientFactoryMock.Object,
+            options,
+            logger
+        );
+
+        _ = await sut.GetModuleDataAsync(
+            accessToken: "access-token",
+            moduleId: "AA:BB:CC:00:00:10",
+            cancellationToken: CancellationToken.None
+        );
+
+        Assert.That(capturedRequest, Is.Not.Null);
+        Assert.That(capturedRequest!.RequestUri, Is.Not.Null);
+
+        string url = capturedRequest.RequestUri!.ToString();
+        Assert.That(url, Does.Contain("/api/getstationsdata?device_id=AA%3ABB%3ACC%3A00%3A00%3A10"));
+
+        Assert.That(capturedRequest.Headers.Authorization, Is.Not.Null);
+        Assert.That(capturedRequest.Headers.Authorization!.Scheme, Is.EqualTo("Bearer"));
+        Assert.That(capturedRequest.Headers.Authorization!.Parameter, Is.EqualTo("access-token"));
+
+        mockHandler.Protected().Verify(
+            "SendAsync",
+            Times.Once(),
+            ItExpr.IsAny<HttpRequestMessage>(),
+            ItExpr.IsAny<CancellationToken>()
+        );
+    }
+
+    [Test]
+    public void Test_GetModuleDataAsync_WhenBadRequest_ThrowsNetatmoBadRequestException_WithEnvelope()
+    {
+        string badJson = "{\"error\":{\"code\":3,\"message\":\"Invalid argument\"}}";
+
+        Mock<HttpMessageHandler> mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.BadRequest,
+                Content = new StringContent(badJson)
+            });
+
+        HttpClient httpClient = new HttpClient(mockHandler.Object);
+
+        Mock<IHttpClientFactory> httpClientFactoryMock = new Mock<IHttpClientFactory>();
+        httpClientFactoryMock
+            .Setup(f => f.CreateClient(It.IsAny<string>()))
+            .Returns(httpClient);
+
+        IOptions<NetatmoOptions> options = Options.Create(new NetatmoOptions
+        {
+            TokenUrl = "https://api.netatmo.com/oauth2/token"
+        });
+
+        ILogger logger = new LoggerConfiguration().CreateLogger();
+        NetatmoLogicDataProvider sut = new NetatmoLogicDataProvider(
+            httpClientFactoryMock.Object,
+            options,
+            logger
+        );
+
+        NetatmoBadRequestException ex = Assert.ThrowsAsync<NetatmoBadRequestException>(async () =>
+            await sut.GetModuleDataAsync("access-token", "AA:BB:CC:00:00:10", CancellationToken.None));
+
+        Assert.That(ex.Code, Is.EqualTo(3));
+        Assert.That(ex.ApiMessage, Is.EqualTo("Invalid argument"));
+    }
+
+    [Test]
+    public void Test_GetModuleDataAsync_WhenBadRequestBodyMalformed_ThrowsNetatmoBadRequestException_DefaultMessage()
+    {
+        Mock<HttpMessageHandler> mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.BadRequest,
+                Content = new StringContent("not-json")
+            });
+
+        HttpClient httpClient = new HttpClient(mockHandler.Object);
+
+        Mock<IHttpClientFactory> httpClientFactoryMock = new Mock<IHttpClientFactory>();
+        httpClientFactoryMock
+            .Setup(f => f.CreateClient(It.IsAny<string>()))
+            .Returns(httpClient);
+
+        IOptions<NetatmoOptions> options = Options.Create(new NetatmoOptions
+        {
+            TokenUrl = "https://api.netatmo.com/oauth2/token"
+        });
+
+        ILogger logger = new LoggerConfiguration().CreateLogger();
+        NetatmoLogicDataProvider sut = new NetatmoLogicDataProvider(
+            httpClientFactoryMock.Object,
+            options,
+            logger
+        );
+
+        NetatmoBadRequestException ex = Assert.ThrowsAsync<NetatmoBadRequestException>(async () =>
+            await sut.GetModuleDataAsync("access-token", "AA:BB:CC:00:00:10", CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Code, Is.EqualTo(-1));
+            Assert.That(ex.ApiMessage, Is.EqualTo("Netatmo request was rejected."));
+        });
+    }
+
+    [Test]
+    public void Test_GetModuleDataAsync_WhenNonSuccessNon400_ThrowsHttpRequestException()
+    {
+        Mock<HttpMessageHandler> mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.InternalServerError,
+                Content = new StringContent("server-error")
+            });
+
+        HttpClient httpClient = new HttpClient(mockHandler.Object);
+
+        Mock<IHttpClientFactory> httpClientFactoryMock = new Mock<IHttpClientFactory>();
+        httpClientFactoryMock
+            .Setup(f => f.CreateClient(It.IsAny<string>()))
+            .Returns(httpClient);
+
+        IOptions<NetatmoOptions> options = Options.Create(new NetatmoOptions
+        {
+            TokenUrl = "https://api.netatmo.com/oauth2/token"
+        });
+
+        ILogger logger = new LoggerConfiguration().CreateLogger();
+        NetatmoLogicDataProvider sut = new NetatmoLogicDataProvider(
+            httpClientFactoryMock.Object,
+            options,
+            logger
+        );
+
+        HttpRequestException ex = Assert.ThrowsAsync<HttpRequestException>(async () =>
+            await sut.GetModuleDataAsync("access-token", "AA:BB:CC:00:00:10", CancellationToken.None));
+
+        Assert.That(ex.Message, Does.Contain("InternalServerError"));
+    }
+
+    [Test]
+    public void Test_GetModuleDataAsync_WhenBodyNullLiteral_ThrowsInvalidOperationException()
+    {
+        Mock<HttpMessageHandler> mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent("null")
+            });
+
+        HttpClient httpClient = new HttpClient(mockHandler.Object);
+
+        Mock<IHttpClientFactory> httpClientFactoryMock = new Mock<IHttpClientFactory>();
+        httpClientFactoryMock
+            .Setup(f => f.CreateClient(It.IsAny<string>()))
+            .Returns(httpClient);
+
+        IOptions<NetatmoOptions> options = Options.Create(new NetatmoOptions
+        {
+            TokenUrl = "https://api.netatmo.com/oauth2/token"
+        });
+
+        ILogger logger = new LoggerConfiguration().CreateLogger();
+        NetatmoLogicDataProvider sut = new NetatmoLogicDataProvider(
+            httpClientFactoryMock.Object,
+            options,
+            logger
+        );
+
+        _ = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await sut.GetModuleDataAsync("access-token", "AA:BB:CC:00:00:10", CancellationToken.None));
     }
    
     [Test]
