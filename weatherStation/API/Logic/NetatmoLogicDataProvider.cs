@@ -3,7 +3,6 @@ using API.Exceptions;
 using API.Interface.Logic;
 using Application.Models;
 
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
@@ -30,6 +29,8 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
     private readonly ILogger logger;
 
     private const string ModuleRoomCacheKey = "netatmo:module-room-map";
+    private const string HomesCacheKey = "netatmo:homes";
+    private static readonly TimeSpan HomeCacheTtl = TimeSpan.FromDays(7);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="NetatmoLogicDataProvider"/> class.
@@ -52,13 +53,17 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
     }
 
     /// <inheritdoc />
-    [ResponseCache(Duration = 604800, Location = ResponseCacheLocation.Any)]
     public async Task<JsonHome> GetHomesDataAsync(
         string accessToken,
         string[] gatewayTypes,
         CancellationToken cancellationToken
     )
     {
+        if (this.memoryCache.TryGetValue(HomesCacheKey, out JsonHome cached) && cached != null)
+        {
+            return cached;
+        }
+
         string apiBaseUrl = GetApiBaseUrl();
         string endpoint = $"{apiBaseUrl}/api/homesdata";
 
@@ -94,6 +99,13 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
             throw new InvalidOperationException("Failed to deserialize Netatmo homesdata response.");
         }
         this.memoryCache.Remove(ModuleRoomCacheKey);
+        MemoryCacheEntryOptions homeCacheKeyOptions = new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = HomeCacheTtl
+        };
+
+        this.memoryCache.Set(HomesCacheKey, jsonHome, homeCacheKeyOptions);
+
         return jsonHome;
     }
 
@@ -134,8 +146,6 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
             try
             {
                 NetatmoError netatmoError = JsonConvert.DeserializeObject<NetatmoError>(responseBody);
-
-                var test = netatmoError.ErrorType;
                 this.logger.Error(
                     "Netatmo returned 400. Code: {Code}. Message: {Message}",
                     netatmoError.ErrorType.Code,
