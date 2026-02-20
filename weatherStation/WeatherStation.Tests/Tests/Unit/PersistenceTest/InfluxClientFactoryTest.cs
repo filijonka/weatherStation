@@ -3,6 +3,7 @@ using Persistance.Influx;
 using InfluxDB.Client;
 using Microsoft.Extensions.Options;
 using Persistence.Influx;
+using Persistence.Influx.Interface;
 
 namespace WeatherStation.Tests.Tests.Unit.PersistenceTest;
 

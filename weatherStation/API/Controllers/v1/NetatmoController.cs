@@ -13,6 +13,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
+using API.Filters;
 
 namespace API.Controllers.v1;
 
@@ -57,30 +58,12 @@ public class NetatmoController : ControllerBase
     /// <param name="cancellationToken">Token used to cancel the request.</param>
     /// <returns>Home data JSON response.</returns>
     [HttpGet("homesdata")]
+    [NetatmoAuthenticated]
     public async Task<ActionResult<ApiResponse<JsonHome>>> GetHomesDataAsync(
         [FromQuery] string gatewayTypes,
         CancellationToken cancellationToken
     )
     {
-        string baseUrl = $"{this.Request.Scheme}://{this.Request.Host}";
-        NetatmoAuthStatusResponse authStatus = await NetatmoAuthHelper.GetAuthStatusAsync(
-            this.tokenStore,
-            baseUrl,
-            cancellationToken
-        );
-
-        if (!authStatus.Authenticated)
-        {
-            return this.Unauthorized(new ApiResponse<JsonHome>
-            {
-                IsSuccess = false,
-                IsAuthenticated = false,
-                LoginUrl = authStatus.LoginUrl,
-                Error = "Not authenticated.",
-                Data = new JsonHome()
-            });
-        }
-
         string[] gatewayTypesArray = null;
         if (!string.IsNullOrWhiteSpace(gatewayTypes))
         {
@@ -93,8 +76,10 @@ public class NetatmoController : ControllerBase
 
         try
         {
+            string accessToken = (string)HttpContext.Items[NetatmoAuthenticatedFilter.HttpContextItemAccessTokenKey]!;
+
             JsonHome jsonHome = await this.logicDataProvider.GetHomesDataAsync(
-                authStatus.Token,
+                accessToken,
                 gatewayTypesArray,
                 cancellationToken
             );
@@ -144,30 +129,12 @@ public class NetatmoController : ControllerBase
     /// <param name="cancellationToken">Token used to cancel the request.</param>
     /// <returns>Station/module data response.</returns>
     [HttpGet("moduledata/{moduleId}")]
+    [NetatmoAuthenticated]
     public async Task<ActionResult<ApiResponse<JsonStationData>>> GetModuleDataAsync(
         [FromRoute] string moduleId,
         CancellationToken cancellationToken
     )
     {
-        string baseUrl = $"{this.Request.Scheme}://{this.Request.Host}";
-        NetatmoAuthStatusResponse authStatus = await NetatmoAuthHelper.GetAuthStatusAsync(
-            this.tokenStore,
-            baseUrl,
-            cancellationToken
-        );
-
-        if (!authStatus.Authenticated)
-        {
-            return this.Unauthorized(new ApiResponse<JsonStationData>
-            {
-                IsSuccess = false,
-                IsAuthenticated = false,
-                LoginUrl = authStatus.LoginUrl,
-                Error = "Not authenticated.",
-                Data = new JsonStationData()
-            });
-        }
-
         if (string.IsNullOrWhiteSpace(moduleId) || !ModuleIdRegex.IsMatch(moduleId))
         {
             return this.BadRequest(new ApiResponse<JsonStationData>
@@ -182,8 +149,9 @@ public class NetatmoController : ControllerBase
 
         try
         {
+            string accessToken = (string)HttpContext.Items[NetatmoAuthenticatedFilter.HttpContextItemAccessTokenKey]!;
             JsonStationData jsonStationData = await this.logicDataProvider.GetModuleDataAsync(
-                authStatus.Token,
+                accessToken,
                 moduleId,
                 cancellationToken
             );

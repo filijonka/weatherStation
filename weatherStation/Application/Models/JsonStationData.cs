@@ -284,7 +284,7 @@ public sealed class Dashboard : IValidatable
     /// <summary>
     /// Surface pressure (mbar).
     /// </summary>
-    public double? Pressure { get; set; }
+    public double? Pressure { get; init; }
 
     /// <summary>
     /// Sea-level pressure (mbar).
@@ -292,37 +292,37 @@ public sealed class Dashboard : IValidatable
     public double? AbsolutePressure { get; set; }
 
     /// <summary>
-    /// Minimum temperature measured.
+    /// Min temperature
     /// </summary>
     [JsonProperty("min_temp")]
     public double? MinTemp { get; set; }
 
     /// <summary>
-    /// Maximum temperature measured.
+    /// Max temperature
     /// </summary>
     [JsonProperty("max_temp")]
     public double? MaxTemp { get; set; }
 
     /// <summary>
-    /// Unix timestamp when the maximum temperature was measured.
+    /// 
     /// </summary>
     [JsonProperty("date_max_temp")]
     public long? DateMaxTemp { get; set; }
 
     /// <summary>
-    /// Unix timestamp when the minimum temperature was measured.
+    /// 
     /// </summary>
     [JsonProperty("date_min_temp")]
     public long? DateMinTemp { get; set; }
 
     /// <summary>
-    /// Temperature trend for the last 12 hours (up, down, stable).
+    /// Trend of temperature
     /// </summary>
     [JsonProperty("temp_trend")]
     public string TempTrend { get; set; } = string.Empty;
 
     /// <summary>
-    /// Pressure trend for the last 12 hours (up, down, stable).
+    /// Trend of pressure
     /// </summary>
     [JsonProperty("pressure_trend")]
     public string PressureTrend { get; set; } = string.Empty;
@@ -333,13 +333,13 @@ public sealed class Dashboard : IValidatable
     public double? Rain { get; set; }
 
     /// <summary>
-    /// Rain measured for the last hour (mm).
+    /// 
     /// </summary>
     [JsonProperty("sum_rain_1")]
     public double? SumRain1 { get; set; }
 
     /// <summary>
-    /// Rain measured for the past 24 hours (mm).
+    /// 
     /// </summary>
     [JsonProperty("sum_rain_24")]
     public double? SumRain24 { get; set; }
@@ -365,25 +365,25 @@ public sealed class Dashboard : IValidatable
     public double? GustAngle { get; set; }
 
     /// <summary>
-    /// Maximum wind strength.
+    /// Max wind strength
     /// </summary>
     [JsonProperty("max_wind_str")]
     public double? MaxWindStrength { get; set; }
 
     /// <summary>
-    /// Wind angle for the maximum wind strength.
+    /// 
     /// </summary>
     [JsonProperty("max_wind_angle")]
     public double? MaxWindAngle { get; set; }
 
     /// <summary>
-    /// Unix timestamp when the maximum wind strength was measured.
+    /// 
     /// </summary>
     [JsonProperty("date_max_wind_str")]
     public long? DateMaxWindStrength { get; set; }
 
     /// <summary>
-    /// Additional dashboard fields not explicitly modeled.
+    /// Used for missing or ignored tags
     /// </summary>
     [JsonExtensionData]
     public IDictionary<string, JToken> Extra { get; set; } = new Dictionary<string, JToken>();
@@ -441,6 +441,20 @@ public sealed class StationModule : IValidatable
     /// </summary>
     [JsonProperty("module_name")]
     public string ModuleName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Room id where the module is located.
+    /// This value is enriched from homes data during ingestion and is not part of getstationsdata payload.
+    /// </summary>
+    [JsonIgnore]
+    public string RoomId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Room name where the module is located.
+    /// This value is enriched from homes data during ingestion and is not part of getstationsdata payload.
+    /// </summary>
+    [JsonIgnore]
+    public string RoomName { get; set; } = string.Empty;
 
     /// <summary>
     /// Array of data measured by the module.

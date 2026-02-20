@@ -4,6 +4,7 @@ using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 using System.Threading;
+using API.Filters;
 
 namespace API.Controllers.v1;
 
@@ -13,15 +14,15 @@ namespace API.Controllers.v1;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/ingest")]
-public sealed class IngestController : ControllerBase
+public sealed class NetatmoIngestController : ControllerBase
 {
-    private readonly IWeatherIngestService ingestService;
+    private readonly INetatmoIngestService ingestService;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="IngestController"/> class.
+    /// Initializes a new instance of the <see cref="NetatmoIngestController"/> class.
     /// </summary>
     /// <param name="ingestService">Ingestion service.</param>
-    public IngestController(IWeatherIngestService ingestService)
+    public NetatmoIngestController(INetatmoIngestService ingestService)
     {
         this.ingestService = ingestService;
     }
@@ -32,10 +33,12 @@ public sealed class IngestController : ControllerBase
     /// <param name="cancellationToken">Token used to cancel the request.</param>
     /// <returns>Ingestion result payload.</returns>
     [HttpPost]
+    [NetatmoAuthenticated]
     public async Task<ActionResult<IngestResponse>> IngestAsync(CancellationToken cancellationToken)
     {
-        int writtenCount = await this.ingestService.FetchAndStoreAsync(cancellationToken);
-        IngestResponse response = new IngestResponse(writtenCount);
+        string accessToken = (string)HttpContext.Items[NetatmoAuthenticatedFilter.HttpContextItemAccessTokenKey]!;
+        int numberOfPoints = await this.ingestService.FetchAndStoreAsync(accessToken, cancellationToken);
+        IngestResponse response = new IngestResponse(numberOfPoints);
         return this.Ok(response);
     }
 

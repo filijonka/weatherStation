@@ -7,7 +7,9 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Threading;
 using Persistence.Influx;
+using Persistence.Influx.Interface;
 using Persistence.Models;
+using Persistence.Models.Interface;
 
 namespace Persistance.Influx;
 
@@ -36,7 +38,7 @@ public sealed class InfluxWriteService : IInfluxWriteService
     }
 
     /// <inheritdoc />
-    public async Task<int> WriteAsync(IReadOnlyCollection<WeatherReading> readings, CancellationToken cancellationToken)
+    public async Task<int> WriteAsync(IReadOnlyCollection<IInfluxPoint> readings, CancellationToken cancellationToken)
     {
         if (readings.Count == 0)
         {

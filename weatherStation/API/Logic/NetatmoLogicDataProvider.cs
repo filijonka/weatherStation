@@ -1,20 +1,23 @@
 using API.Auth.Netatmo.Options;
 using API.Exceptions;
 using API.Interface.Logic;
-
 using Application.Models;
+
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace API.Logic;
 
@@ -23,26 +26,33 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
 {
     private readonly IHttpClientFactory httpClientFactory;
     private readonly IOptions<NetatmoOptions> options;
+    private readonly IMemoryCache memoryCache;
     private readonly ILogger logger;
+
+    private const string ModuleRoomCacheKey = "netatmo:module-room-map";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="NetatmoLogicDataProvider"/> class.
     /// </summary>
     /// <param name="httpClientFactory">HTTP client factory for creating HTTP clients.</param>
     /// <param name="options">Netatmo options.</param>
+    /// <param name="memoryCache"></param>
     /// <param name="logger">Serilog logger.</param>
     public NetatmoLogicDataProvider(
         IHttpClientFactory httpClientFactory,
         IOptions<NetatmoOptions> options,
+        IMemoryCache memoryCache,
         ILogger logger
     )
     {
         this.httpClientFactory = httpClientFactory;
         this.options = options;
+        this.memoryCache = memoryCache;
         this.logger = logger.ForContext<NetatmoLogicDataProvider>();
     }
 
     /// <inheritdoc />
+    [ResponseCache(Duration = 604800, Location = ResponseCacheLocation.Any)]
     public async Task<JsonHome> GetHomesDataAsync(
         string accessToken,
         string[] gatewayTypes,
@@ -83,8 +93,24 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
         {
             throw new InvalidOperationException("Failed to deserialize Netatmo homesdata response.");
         }
-
+        this.memoryCache.Remove(ModuleRoomCacheKey);
         return jsonHome;
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyDictionary<string, ModuleRoomInfo> GetModuleRoomMap(JsonHome homes)
+    {
+        if (this.memoryCache.TryGetValue(ModuleRoomCacheKey, out IReadOnlyDictionary<string, ModuleRoomInfo> cached) &&
+            cached != null)
+        {
+            return cached;
+        }
+        
+        Dictionary<string, ModuleRoomInfo> map = BuildModuleRoomMap(homes);
+        
+        this.memoryCache.Set(ModuleRoomCacheKey, map);
+
+        return map;
     }
 
     /// <inheritdoc />
@@ -109,6 +135,7 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
             {
                 NetatmoError netatmoError = JsonConvert.DeserializeObject<NetatmoError>(responseBody);
 
+                var test = netatmoError.ErrorType;
                 this.logger.Error(
                     "Netatmo returned 400. Code: {Code}. Message: {Message}",
                     netatmoError.ErrorType.Code,
@@ -237,5 +264,29 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
         }
 
         return "https://api.netatmo.com";
+    }
+    
+    private static Dictionary<string, ModuleRoomInfo> BuildModuleRoomMap(JsonHome homes)
+    {
+        Dictionary<string, ModuleRoomInfo> result = new Dictionary<string, ModuleRoomInfo>();
+
+        foreach (Home home in homes.Body.Homes)
+        {
+            Dictionary<string, string> roomNameById = new Dictionary<string, string>();
+            foreach (Room room in home.Rooms.Where(room => !string.IsNullOrWhiteSpace(room.Id)))
+            {
+                roomNameById[room.Id] = room.Name ?? string.Empty;
+            }
+
+            foreach (Module module in home.Modules.Where(module => !string.IsNullOrEmpty(module.Id)))
+            {
+                string roomId = module.RoomId ?? string.Empty;
+                string roomName = roomNameById.TryGetValue(roomId, out string name) ? name : string.Empty;
+
+                result[module.Id] = new ModuleRoomInfo(roomId, roomName);
+            }
+        }
+
+        return result;
     }
 }

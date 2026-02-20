@@ -1,12 +1,14 @@
-using System;
+using Persistance.Influx;
+
 using InfluxDB.Client;
 using Microsoft.Extensions.Options;
-using Persistance.Influx;
+using System;
+using Persistence.Influx.Interface;
 
 namespace Persistence.Influx;
 
 /// <inheritdoc />
-public sealed class InfluxClientFactory : IInfluxClientFactory, IDisposable
+public sealed class InfluxClientFactory : IInfluxClientFactory
 {
     private readonly InfluxOptions options;
     private readonly InfluxDBClient influxDbClient;

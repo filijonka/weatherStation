@@ -1,17 +1,20 @@
 using API.Auth.Netatmo.Interface;
 using API.Auth.Netatmo.Options;
 using API.Auth.Netatmo.Services;
+using API.Filters;
 using API.Interface;
 using API.Interface.Logic;
 using API.Logic;
 using API.Options;
 using API.Services;
+using Microsoft.Extensions.Caching.Memory;
 using Persistance.Influx;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Options;
 using Persistence.Influx;
+using Persistence.Influx.Interface;
 using Serilog;
 
 namespace API.Extensions;
@@ -37,12 +40,13 @@ public static class ApplicationServiceExtension
         RegisterValidatedOptions<NetatmoOptions>(services, configuration.GetSection("Netatmo"));
         services.AddSingleton<IInfluxClientFactory, InfluxClientFactory>();
         services.AddSingleton<IInfluxWriteService, InfluxWriteService>();
-        services.AddSingleton<IWeatherIngestService, WeatherIngestService>();
+        services.AddSingleton<IMemoryCache, MemoryCache>();
+        services.AddSingleton<INetatmoIngestService, NetatmoIngestService>();
         services.AddSingleton<INetatmoTokenStore, NetatmoTokenStore>();
         services.AddHttpClient<INetatmoOAuthClient, NetatmoOAuthClient>();
         services.AddHttpClient();
         services.AddSingleton<INetatmoLogicDataProvider, NetatmoLogicDataProvider>();
-
+        services.AddScoped<NetatmoAuthenticatedFilter>();
         return services;
     }
 

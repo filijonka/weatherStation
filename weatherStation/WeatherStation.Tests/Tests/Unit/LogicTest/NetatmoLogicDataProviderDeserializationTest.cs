@@ -13,6 +13,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Application.Models;
+using Microsoft.Extensions.Caching.Memory;
 using Moq.Protected;
 using Newtonsoft.Json;
 
@@ -27,10 +28,8 @@ public class NetatmoLogicDataProviderDeserializationTest
         string fixturePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Files", "response_homesdata.json");
         string responseBody = await File.ReadAllTextAsync(fixturePath, CancellationToken.None);
 
-        using HttpClient httpClient = new HttpClient(new StubHttpMessageHandler(responseBody))
-        {
-            BaseAddress = new Uri("https://api.netatmo.com")
-        };
+        using HttpClient httpClient = new HttpClient(new StubHttpMessageHandler(responseBody));
+        httpClient.BaseAddress = new Uri("https://api.netatmo.com");
 
         Mock<IHttpClientFactory> httpClientFactoryMock = new Mock<IHttpClientFactory>();
         httpClientFactoryMock
@@ -43,12 +42,14 @@ public class NetatmoLogicDataProviderDeserializationTest
         };
 
         IOptions<NetatmoOptions> optionsWrapper = Options.Create(netatmoOptions);
-        ILogger logger = new LoggerConfiguration().CreateLogger();
+        Mock<ILogger> mockLogger = new Mock<ILogger>();
+        Mock<IMemoryCache> mockMemoryCache = new Mock<IMemoryCache>();
 
         NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
             httpClientFactoryMock.Object,
             optionsWrapper,
-            logger
+            mockMemoryCache.Object,
+            mockLogger.Object
         );
 
         JsonHome result = await provider.GetHomesDataAsync("access-token", null, CancellationToken.None);
@@ -83,10 +84,8 @@ public class NetatmoLogicDataProviderDeserializationTest
         string fixturePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Files", "response_stationdata.json");
         string responseBody = await File.ReadAllTextAsync(fixturePath, CancellationToken.None);
 
-        using HttpClient httpClient = new HttpClient(new StubHttpMessageHandler(responseBody))
-        {
-            BaseAddress = new Uri("https://api.netatmo.com")
-        };
+        using HttpClient httpClient = new HttpClient(new StubHttpMessageHandler(responseBody));
+        httpClient.BaseAddress = new Uri("https://api.netatmo.com");
 
         Mock<IHttpClientFactory> httpClientFactoryMock = new Mock<IHttpClientFactory>();
         httpClientFactoryMock
@@ -99,13 +98,16 @@ public class NetatmoLogicDataProviderDeserializationTest
         };
 
         IOptions<NetatmoOptions> optionsWrapper = Options.Create(netatmoOptions);
-        ILogger logger = new LoggerConfiguration().CreateLogger();
+        Mock<ILogger> mockLogger = new Mock<ILogger>();
+        Mock<IMemoryCache> mockMemoryCache = new Mock<IMemoryCache>();
 
         NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
             httpClientFactoryMock.Object,
             optionsWrapper,
-            logger
+            mockMemoryCache.Object,
+            mockLogger.Object
         );
+
 
         JsonStationData result = await provider.GetModuleDataAsync(
             accessToken: "access-token",
@@ -181,14 +183,18 @@ public class NetatmoLogicDataProviderDeserializationTest
             TokenUrl = "https://api.netatmo.com/oauth2/token"
         });
 
-        ILogger logger = new LoggerConfiguration().CreateLogger();
-        NetatmoLogicDataProvider sut = new NetatmoLogicDataProvider(
+        Mock<ILogger> mockLogger = new Mock<ILogger>();
+        Mock<IMemoryCache> mockMemoryCache = new Mock<IMemoryCache>();
+
+        NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
             httpClientFactoryMock.Object,
             options,
-            logger
+            mockMemoryCache.Object,
+            mockLogger.Object
         );
 
-        _ = await sut.GetModuleDataAsync(
+
+        _ = await provider.GetModuleDataAsync(
             accessToken: "access-token",
             moduleId: "AA:BB:CC:00:00:10",
             cancellationToken: CancellationToken.None
@@ -215,7 +221,7 @@ public class NetatmoLogicDataProviderDeserializationTest
     [Test]
     public void Test_GetModuleDataAsync_WhenBadRequest_ThrowsNetatmoBadRequestException_WithEnvelope()
     {
-        string badJson = "{\"error\":{\"code\":3,\"message\":\"Invalid argument\"}}";
+        const string badJson = "{\"error\":{\"code\":3,\"message\":\"Invalid argument\"}}";
 
         Mock<HttpMessageHandler> mockHandler = new Mock<HttpMessageHandler>();
         mockHandler
@@ -244,17 +250,24 @@ public class NetatmoLogicDataProviderDeserializationTest
         });
 
         ILogger logger = new LoggerConfiguration().CreateLogger();
-        NetatmoLogicDataProvider sut = new NetatmoLogicDataProvider(
+        Mock<IMemoryCache> mockMemoryCache = new Mock<IMemoryCache>();
+
+        NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
             httpClientFactoryMock.Object,
             options,
+            mockMemoryCache.Object,
             logger
         );
 
         NetatmoBadRequestException ex = Assert.ThrowsAsync<NetatmoBadRequestException>(async () =>
-            await sut.GetModuleDataAsync("access-token", "AA:BB:CC:00:00:10", CancellationToken.None));
-
-        Assert.That(ex.Code, Is.EqualTo(3));
-        Assert.That(ex.ApiMessage, Is.EqualTo("Invalid argument"));
+            await provider.GetModuleDataAsync("access-token", "AA:BB:CC:00:00:10", CancellationToken.None));
+        
+        Assert.That(ex, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex.Code, Is.EqualTo(3));
+            Assert.That(ex.ApiMessage, Is.EqualTo("Invalid argument"));
+        });
     }
 
     [Test]
@@ -287,15 +300,20 @@ public class NetatmoLogicDataProviderDeserializationTest
         });
 
         ILogger logger = new LoggerConfiguration().CreateLogger();
-        NetatmoLogicDataProvider sut = new NetatmoLogicDataProvider(
+        Mock<IMemoryCache> mockMemoryCache = new Mock<IMemoryCache>();
+
+        NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
             httpClientFactoryMock.Object,
             options,
+            mockMemoryCache.Object,
             logger
         );
 
-        NetatmoBadRequestException ex = Assert.ThrowsAsync<NetatmoBadRequestException>(async () =>
-            await sut.GetModuleDataAsync("access-token", "AA:BB:CC:00:00:10", CancellationToken.None));
 
+        NetatmoBadRequestException ex = Assert.ThrowsAsync<NetatmoBadRequestException>(async () =>
+            await provider.GetModuleDataAsync("access-token", "AA:BB:CC:00:00:10", CancellationToken.None));
+
+        Assert.That(ex, Is.Not.Null);
         Assert.Multiple(() =>
         {
             Assert.That(ex.Code, Is.EqualTo(-1));
@@ -333,15 +351,19 @@ public class NetatmoLogicDataProviderDeserializationTest
         });
 
         ILogger logger = new LoggerConfiguration().CreateLogger();
-        NetatmoLogicDataProvider sut = new NetatmoLogicDataProvider(
+        Mock<IMemoryCache> mockMemoryCache = new Mock<IMemoryCache>();
+
+        NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
             httpClientFactoryMock.Object,
             options,
+            mockMemoryCache.Object,
             logger
         );
 
-        HttpRequestException ex = Assert.ThrowsAsync<HttpRequestException>(async () =>
-            await sut.GetModuleDataAsync("access-token", "AA:BB:CC:00:00:10", CancellationToken.None));
 
+        HttpRequestException ex = Assert.ThrowsAsync<HttpRequestException>(async () =>
+            await provider.GetModuleDataAsync("access-token", "AA:BB:CC:00:00:10", CancellationToken.None));
+        Assert.That(ex, Is.Not.Null);
         Assert.That(ex.Message, Does.Contain("InternalServerError"));
     }
 
@@ -374,15 +396,18 @@ public class NetatmoLogicDataProviderDeserializationTest
             TokenUrl = "https://api.netatmo.com/oauth2/token"
         });
 
-        ILogger logger = new LoggerConfiguration().CreateLogger();
-        NetatmoLogicDataProvider sut = new NetatmoLogicDataProvider(
+        Mock<ILogger> mockLogger = new Mock<ILogger>();
+        Mock<IMemoryCache> mockMemoryCache = new Mock<IMemoryCache>();
+
+        NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
             httpClientFactoryMock.Object,
             options,
-            logger
+            mockMemoryCache.Object,
+            mockLogger.Object
         );
 
         _ = Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await sut.GetModuleDataAsync("access-token", "AA:BB:CC:00:00:10", CancellationToken.None));
+            await provider.GetModuleDataAsync("access-token", "AA:BB:CC:00:00:10", CancellationToken.None));
     }
    
     [Test]
@@ -426,16 +451,19 @@ public class NetatmoLogicDataProviderDeserializationTest
             ApiBaseUrl = "https://api.netatmo.com"
         });
 
-        ILogger logger = new LoggerConfiguration().CreateLogger();
+        Mock<ILogger> mockLogger = new Mock<ILogger>();
+        Mock<IMemoryCache> mockMemoryCache = new Mock<IMemoryCache>();
 
-        NetatmoLogicDataProvider sut = new NetatmoLogicDataProvider(
+        NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
             mockHttpClientFactory.Object,
             options,
-            logger
+            mockMemoryCache.Object,
+            mockLogger.Object
         );
 
+
         // Act
-        _ = await sut.GetHomesDataAsync(
+        _ = await provider.GetHomesDataAsync(
             accessToken: "access-token",
             gatewayTypes: gateways,
             cancellationToken: CancellationToken.None
@@ -505,16 +533,18 @@ public class NetatmoLogicDataProviderDeserializationTest
             ApiBaseUrl = "https://api.netatmo.com"
         });
 
-        ILogger logger = new LoggerConfiguration().CreateLogger();
+        Mock<ILogger> mockLogger = new Mock<ILogger>();
+        Mock<IMemoryCache> mockMemoryCache = new Mock<IMemoryCache>();
 
-        NetatmoLogicDataProvider sut = new NetatmoLogicDataProvider(
+        NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
             mockHttpClientFactory.Object,
             options,
-            logger
+            mockMemoryCache.Object,
+            mockLogger.Object
         );
 
         // Act
-        _ = await sut.GetHomesDataAsync(
+        _ = await provider.GetHomesDataAsync(
             accessToken: "access-token",
             gatewayTypes: new string[] {"NLG", ""},
             cancellationToken: CancellationToken.None
@@ -578,16 +608,18 @@ public class NetatmoLogicDataProviderDeserializationTest
             ApiBaseUrl = "https://api.netatmo.com"
         });
 
-        ILogger logger = new LoggerConfiguration().CreateLogger();
+        Mock<ILogger> mockLogger = new Mock<ILogger>();
+        Mock<IMemoryCache> mockMemoryCache = new Mock<IMemoryCache>();
 
-        NetatmoLogicDataProvider sut = new NetatmoLogicDataProvider(
+        NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
             mockHttpClientFactory.Object,
             options,
-            logger
+            mockMemoryCache.Object,
+            mockLogger.Object
         );
 
         // Act
-        _ = await sut.GetHomesDataAsync(
+        _ = await provider.GetHomesDataAsync(
             accessToken: "access-token",
             gatewayTypes: gateways,
             cancellationToken: CancellationToken.None

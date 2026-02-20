@@ -1,4 +1,5 @@
 using InfluxDB.Client;
+using Persistence.Influx.Interface;
 
 namespace Persistence.Influx;
 

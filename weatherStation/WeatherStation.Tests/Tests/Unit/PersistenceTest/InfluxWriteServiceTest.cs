@@ -10,7 +10,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using InfluxDB.Client;
 using Persistence.Influx;
+using Persistence.Influx.Interface;
 using Persistence.Models;
+using Persistence.Models.Interface;
 
 namespace WeatherStation.Tests.Tests.Unit.PersistenceTest;
 
@@ -35,7 +37,7 @@ public class InfluxWriteServiceTest
 
         InfluxWriteService service = new InfluxWriteService(clientFactory.Object, optionsWrapper, logger);
 
-        int result = await service.WriteAsync(new List<WeatherReading>(), CancellationToken.None);
+        int result = await service.WriteAsync(new List<IInfluxPoint>(), CancellationToken.None);
 
         Assert.That(result, Is.EqualTo(0));
     }

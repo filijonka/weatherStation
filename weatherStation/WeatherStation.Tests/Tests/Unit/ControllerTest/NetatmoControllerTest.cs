@@ -2,6 +2,7 @@ using API.Auth.Netatmo.Interface;
 using API.Auth.Netatmo.Services;
 using API.Controllers.v1;
 using API.Exceptions;
+using API.Filters;
 using API.Interface.Logic;
 using Application.Models;
 
@@ -29,8 +30,23 @@ public class NetatmoControllerTest
     private static NetatmoController CreateController(
         INetatmoTokenStore tokenStore,
         INetatmoLogicDataProvider logicDataProvider,
-        ILogger logger)
+        ILogger logger,
+        string accessToken = "test-token")
     {
+        DefaultHttpContext httpContext = new DefaultHttpContext
+        {
+            Request =
+            {
+                Scheme = "https",
+                Host = new HostString("localhost:8080")
+            }
+        };
+
+        if (accessToken != null)
+        {
+            httpContext.Items[NetatmoAuthenticatedFilter.HttpContextItemAccessTokenKey] = accessToken;
+        }
+
         NetatmoController controller = new NetatmoController(
             tokenStore,
             logicDataProvider,
@@ -39,14 +55,7 @@ public class NetatmoControllerTest
 
         controller.ControllerContext = new ControllerContext
         {
-            HttpContext = new DefaultHttpContext
-            {
-                Request =
-                {
-                    Scheme = "https",
-                    Host = new HostString("localhost:8080")
-                }
-            }
+            HttpContext = httpContext
         };
 
         return controller;
@@ -81,28 +90,28 @@ public class NetatmoControllerTest
         Mock<INetatmoLogicDataProvider> logicDataProviderMock = new Mock<INetatmoLogicDataProvider>();
         Mock<ILogger> loggerMock = new Mock<ILogger>();
 
-        NetatmoController controller = CreateController(tokenStoreMock.Object, logicDataProviderMock.Object, loggerMock.Object);
+        NetatmoController controller = CreateController(tokenStoreMock.Object, logicDataProviderMock.Object, loggerMock.Object, null);
 
         ActionResult<ApiResponse<JsonHome>> result = await controller.GetHomesDataAsync(null, CancellationToken.None);
 
-        Assert.That(result.Result, Is.InstanceOf<UnauthorizedObjectResult>());
-        UnauthorizedObjectResult unauthorizedResult = result.Result as UnauthorizedObjectResult;
-        Assert.That(unauthorizedResult, Is.Not.Null);
-        Assert.That(unauthorizedResult!.Value, Is.InstanceOf<ApiResponse<JsonHome>>());
+        Assert.That(result.Result, Is.InstanceOf<ObjectResult>());
+        ObjectResult objectResult = result.Result as ObjectResult;
+        Assert.That(objectResult, Is.Not.Null);
+        Assert.That(objectResult!.StatusCode, Is.EqualTo(502));
+        Assert.That(objectResult.Value, Is.InstanceOf<ApiResponse<JsonHome>>());
 
-        ApiResponse<JsonHome> response = unauthorizedResult.Value as ApiResponse<JsonHome>;
+        ApiResponse<JsonHome> response = objectResult.Value as ApiResponse<JsonHome>;
         Assert.That(response, Is.Not.Null);
         Assert.Multiple(() =>
         {
             Assert.That(response!.IsSuccess, Is.False);
-            Assert.That(response.IsAuthenticated, Is.False);
-            Assert.That(response.LoginUrl, Does.Contain("/api/v1/netatmo/auth/login"));
+            Assert.That(response.IsAuthenticated, Is.True);
             Assert.That(response.Data, Is.Not.Null);
         });
 
         logicDataProviderMock.Verify(
-            d => d.GetHomesDataAsync(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+            d => d.GetHomesDataAsync(null, null, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Test]
@@ -330,28 +339,28 @@ public class NetatmoControllerTest
         Mock<INetatmoLogicDataProvider> logicDataProviderMock = new Mock<INetatmoLogicDataProvider>();
         Mock<ILogger> loggerMock = new Mock<ILogger>();
 
-        NetatmoController controller = CreateController(tokenStoreMock.Object, logicDataProviderMock.Object, loggerMock.Object);
+        NetatmoController controller = CreateController(tokenStoreMock.Object, logicDataProviderMock.Object, loggerMock.Object, null);
 
         ActionResult<ApiResponse<JsonStationData>> result = await controller.GetModuleDataAsync(StationDeviceId, CancellationToken.None);
 
-        Assert.That(result.Result, Is.InstanceOf<UnauthorizedObjectResult>());
-        UnauthorizedObjectResult unauthorizedResult = result.Result as UnauthorizedObjectResult;
-        Assert.That(unauthorizedResult, Is.Not.Null);
-        Assert.That(unauthorizedResult!.Value, Is.InstanceOf<ApiResponse<JsonStationData>>());
+        Assert.That(result.Result, Is.InstanceOf<ObjectResult>());
+        ObjectResult objectResult = result.Result as ObjectResult;
+        Assert.That(objectResult, Is.Not.Null);
+        Assert.That(objectResult!.StatusCode, Is.EqualTo(502));
+        Assert.That(objectResult.Value, Is.InstanceOf<ApiResponse<JsonStationData>>());
 
-        ApiResponse<JsonStationData> response = unauthorizedResult.Value as ApiResponse<JsonStationData>;
+        ApiResponse<JsonStationData> response = objectResult.Value as ApiResponse<JsonStationData>;
         Assert.That(response, Is.Not.Null);
         Assert.Multiple(() =>
         {
             Assert.That(response!.IsSuccess, Is.False);
-            Assert.That(response.IsAuthenticated, Is.False);
-            Assert.That(response.LoginUrl, Does.Contain("/api/v1/netatmo/auth/login"));
+            Assert.That(response.IsAuthenticated, Is.True);
             Assert.That(response.Data, Is.Not.Null);
         });
 
         logicDataProviderMock.Verify(
-            d => d.GetModuleDataAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+            d => d.GetModuleDataAsync(null, StationDeviceId, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Test]

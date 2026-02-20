@@ -1,6 +1,6 @@
 using InfluxDB.Client;
 
-namespace Persistence.Influx;
+namespace Persistence.Influx.Interface;
 
 /// <summary>
 /// Interface for InfluxDB write client operations.
