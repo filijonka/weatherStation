@@ -1,3 +1,4 @@
+using System;
 using InfluxDB.Client.Api.Domain;
 using InfluxDB.Client.Writes;
 using InfluxDB.Client;
@@ -45,7 +46,38 @@ public sealed class InfluxWriteService : IInfluxWriteService
             return 0;
         }
 
+        List<PointData> points = new List<PointData>(readings.Count);
+        foreach (IInfluxPoint reading in readings)
+        {
+            PointData point = PointData
+                .Measurement(reading.Measurement);
+            foreach (KeyValuePair<string, object> field in reading.Fields)
+            {
+                point = point.Field(field.Key, field.Value);
+            }
 
-        return 0;
+            foreach (KeyValuePair<string, string> tag in reading.Tags)
+            {
+                point = point.Tag(tag.Key, tag.Value);
+            }
+            point = point.Timestamp(reading.TimestampUtc.ToUniversalTime(), WritePrecision.Ns);
+
+            points.Add(point);
+        }
+
+        this.logger.Information("Writing {Count} readings to InfluxDB bucket {Bucket}", points.Count, this.options.Bucket);
+
+        try
+        {
+            IWriteApiAsync writeApi = this.influxClientFactory.GetWriteClient().GetWriteApiAsync();
+            await writeApi.WritePointsAsync(points, this.options.Bucket, this.options.Org, cancellationToken);
+
+        }
+        catch (Exception ex)
+        {
+            this.logger.Error(ex, "We got an exception in writing to influx");
+            return 0;
+        }
+        return points.Count;
     }
 }
