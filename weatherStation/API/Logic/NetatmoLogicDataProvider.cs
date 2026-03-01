@@ -232,12 +232,6 @@ public sealed class NetatmoLogicDataProvider : INetatmoLogicDataProvider
             }
 
             selected.Add(normalized.ToUpperInvariant());
-
-            // Safety cap
-            if (selected.Count >= 10)
-            {
-                break;
-            }
         }
 
         if (selected.Count == 0)

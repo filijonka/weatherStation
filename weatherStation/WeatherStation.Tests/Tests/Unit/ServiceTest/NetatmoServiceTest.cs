@@ -1,14 +1,18 @@
 using API.Services;
 using API.Interface.Logic;
 using Application.Models;
+using Persistence.Influx;
+using Persistence.Influx.Interface;
+using Persistence.Models.Interface;
+
 using Moq;
 using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Persistence.Influx.Interface;
-using Persistence.Models.Interface;
+using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 
 namespace WeatherStation.Tests.Tests.Unit.ServiceTest;
 
@@ -18,6 +22,17 @@ namespace WeatherStation.Tests.Tests.Unit.ServiceTest;
 [TestFixture]
 public class NetatmoServiceTest
 {
+    private Mock<IOptions<InfluxOptions>> optionMock;
+    [SetUp]
+    public void ServiceSetup()
+    {
+        string optionString =
+            "{\"Url\": \"http://influxdb:8181\",\"Token\": \"\",\"Bucket\": \"readings\",\"Tables\": {\"NAMain\": \"indoor\",\"NAModule1\": \"outdoor\"}}";
+        InfluxOptions option = JsonConvert.DeserializeObject<InfluxOptions>(optionString);
+        optionMock= new Mock<IOptions<InfluxOptions>>();
+        optionMock.Setup(o => o.Value).Returns(option);
+    }
+
     [Test]
     public void Test_FetchAndStoreAsync_WhenRoomMapEmpty_ThrowsInvalidOperationException()
     {
@@ -28,7 +43,7 @@ public class NetatmoServiceTest
             .Returns(new Dictionary<string, ModuleRoomInfo>());
 
         ILogger logger = new LoggerConfiguration().CreateLogger();
-        NetatmoService service = new NetatmoService(influxWriteService.Object, provider.Object, logger);
+        NetatmoService service = new NetatmoService(influxWriteService.Object, provider.Object, logger, optionMock.Object);
 
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await service.FetchAndStoreAsync("token", CancellationToken.None));
@@ -94,7 +109,7 @@ public class NetatmoServiceTest
             .ReturnsAsync(stationData);
 
         ILogger logger = new LoggerConfiguration().CreateLogger();
-        NetatmoService service = new NetatmoService(influxWriteService.Object, provider.Object, logger);
+        NetatmoService service = new NetatmoService(influxWriteService.Object, provider.Object, logger, optionMock.Object);
 
         int result = await service.FetchAndStoreAsync("token", CancellationToken.None);
 

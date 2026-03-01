@@ -1,5 +1,8 @@
 using Persistence.Models.Interface;
 using System;
+using System.Collections.Generic;
+using Microsoft.Extensions.Options;
+using Persistence.Influx;
 
 namespace Persistence.Models;
 
@@ -9,13 +12,16 @@ namespace Persistence.Models;
 public sealed class NetatmoPointFactory
 {
     private readonly string measurement;
+    private readonly IOptions<InfluxOptions> options;
 
     /// <summary>
-    /// constructor
+    /// 
     /// </summary>
-    /// <param name="measurement">Influx measurement name to apply to created points.</param>
-    public NetatmoPointFactory(string measurement)
+    /// <param name="options"></param>
+    /// <param name="measurement"> used as fallback table name if configuration is missing</param>
+    public NetatmoPointFactory(IOptions<InfluxOptions> options, string measurement)
     {
+        this.options = options;
         this.measurement = measurement;
     }
 
@@ -26,14 +32,18 @@ public sealed class NetatmoPointFactory
     /// <returns>A concrete point implementation matching the Netatmo type.</returns>
     public IInfluxPoint Create(string netatmoType)
     {
+        
+        Dictionary<string, string> tables = options.Value.Tables;
+        string table = tables.GetValueOrDefault(netatmoType, this.measurement);
         return netatmoType switch
         {
-            "NAMain" => new NetatmoIndoorPoint(this.measurement),
-            "NAModule1" => new NetatmoOutdoorPoint(this.measurement),
-            "NAModule2" => new NetatmoWindPoint(this.measurement),
-            "NAModule3" => new NetatmoRainPoint(this.measurement),
-            "NAModule4" => new NetatmoIndoorPoint(this.measurement),
-            _ => throw new ArgumentOutOfRangeException(nameof(netatmoType), netatmoType, "Unsupported Netatmo module type.")
+            "NAMain" => new NetatmoIndoorPoint(table),
+            "NAModule1" => new NetatmoOutdoorPoint(table),
+            "NAModule2" => new NetatmoWindPoint(table),
+            "NAModule3" => new NetatmoRainPoint(table),
+            "NAModule4" => new NetatmoIndoorPoint(table),
+            _ => throw new ArgumentOutOfRangeException(nameof(netatmoType), netatmoType,
+                "Unsupported Netatmo module type.")
         };
     }
 }

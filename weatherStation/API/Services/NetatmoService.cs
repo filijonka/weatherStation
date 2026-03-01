@@ -10,6 +10,8 @@ using System.Threading;
 using Persistence.Models;
 using Persistence.Models.Interface;
 using System;
+using Microsoft.Extensions.Options;
+using Persistence.Influx;
 
 namespace API.Services;
 
@@ -19,6 +21,7 @@ public sealed class NetatmoService : INetatmoService
     private readonly IInfluxWriteService influxWriteService;
     private readonly INetatmoLogicDataProvider netatmoLogicDataProvider;
     private readonly ILogger logger;
+    private readonly IOptions<InfluxOptions> options;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="NetatmoService"/> class.
@@ -29,12 +32,14 @@ public sealed class NetatmoService : INetatmoService
     public NetatmoService(
         IInfluxWriteService influxWriteService,
         INetatmoLogicDataProvider netatmoLogicDataProvider,
-        ILogger logger
+        ILogger logger,
+        IOptions<InfluxOptions> options
     )
     {
         this.influxWriteService = influxWriteService;
         this.netatmoLogicDataProvider = netatmoLogicDataProvider;
         this.logger = logger.ForContext<NetatmoService>();
+        this.options = options;
     }
 
     /// <inheritdoc />
@@ -75,10 +80,10 @@ public sealed class NetatmoService : INetatmoService
             return 0;
         }
 
-        NetatmoPointFactory factory = new NetatmoPointFactory("netatmo");
+        NetatmoPointFactory factory = new NetatmoPointFactory(options, "netatmo");
         List<IInfluxPoint> points = new List<IInfluxPoint>();
         Device device = stationData.Body.Devices[0];
-        IInfluxPoint point = factory.Create(device.Type); 
+        IInfluxPoint point = factory.Create(device.Type);
         point.Initialize(device);
         points.Add(point);
 

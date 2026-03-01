@@ -50,8 +50,7 @@ public sealed class InfluxWriteService : IInfluxWriteService
         List<PointData> points = new List<PointData>(readings.Count);
         foreach (IInfluxPoint reading in readings)
         {
-            PointData point = PointData
-                .Measurement(reading.Measurement);
+            PointData point = PointData.Measurement(reading.Measurement);
             foreach (KeyValuePair<string, object> field in reading.Fields)
             {
                 point = point.Field(field.Key, field.Value);
