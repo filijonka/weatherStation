@@ -1,10 +1,10 @@
-using System.Collections.Generic;
-using API.Interface;
 using API.Interface.Logic;
+using API.Interface.Services;
 using Application.Models;
 using Persistence.Influx.Interface;
 
 using Serilog;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Threading;
 using Persistence.Models;
@@ -14,19 +14,19 @@ using System;
 namespace API.Services;
 
 /// <inheritdoc />
-public sealed class NetatmoIngestService : INetatmoIngestService
+public sealed class NetatmoService : INetatmoService
 {
     private readonly IInfluxWriteService influxWriteService;
     private readonly INetatmoLogicDataProvider netatmoLogicDataProvider;
     private readonly ILogger logger;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="NetatmoIngestService"/> class.
+    /// Initializes a new instance of the <see cref="NetatmoService"/> class.
     /// </summary>
     /// <param name="influxWriteService">Influx write service.</param>
     /// <param name="netatmoLogicDataProvider"></param>
     /// <param name="logger">Serilog logger.</param>
-    public NetatmoIngestService(
+    public NetatmoService(
         IInfluxWriteService influxWriteService,
         INetatmoLogicDataProvider netatmoLogicDataProvider,
         ILogger logger
@@ -34,7 +34,7 @@ public sealed class NetatmoIngestService : INetatmoIngestService
     {
         this.influxWriteService = influxWriteService;
         this.netatmoLogicDataProvider = netatmoLogicDataProvider;
-        this.logger = logger.ForContext<NetatmoIngestService>();
+        this.logger = logger.ForContext<NetatmoService>();
     }
 
     /// <inheritdoc />

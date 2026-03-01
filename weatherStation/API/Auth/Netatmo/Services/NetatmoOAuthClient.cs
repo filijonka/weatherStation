@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using System;
 using System.Linq;
+using API.Responses;
 
 namespace API.Auth.Netatmo.Services;
 
@@ -18,7 +19,8 @@ namespace API.Auth.Netatmo.Services;
 public sealed class NetatmoOAuthClient : INetatmoOAuthClient
 {
     private readonly HttpClient httpClient;
-    private readonly NetatmoOptions options;
+    private readonly IOptions<NetatmoOptions> options;
+    private readonly INetatmoTokenStore netatmoTokenStore;
     private readonly ILogger logger;
 
     /// <summary>
@@ -26,79 +28,128 @@ public sealed class NetatmoOAuthClient : INetatmoOAuthClient
     /// </summary>
     /// <param name="httpClient">HTTP client for Netatmo requests.</param>
     /// <param name="options">Netatmo OAuth configuration.</param>
+    /// <param name="netatmoTokenStore"></param>
     /// <param name="logger">Serilog logger.</param>
     public NetatmoOAuthClient(
         HttpClient httpClient,
         IOptions<NetatmoOptions> options,
+        INetatmoTokenStore netatmoTokenStore,
         ILogger logger
     )
     {
         this.httpClient = httpClient;
-        this.options = options.Value;
+        this.options = options;
+        this.netatmoTokenStore = netatmoTokenStore;
         this.logger = logger.ForContext<NetatmoOAuthClient>();
     }
 
     /// <inheritdoc />
-    public string BuildAuthorizeUrl(string state)
+    public async Task<NetatmoAuthStatusResponse> Login(CancellationToken cancellationToken)
     {
-        string scopes = NormalizeScopes(this.options.Scopes);
-        Dictionary<string, string> query = new Dictionary<string, string>
+        NetatmoTokenInfo tokenInfo = await netatmoTokenStore.LoadAsync(cancellationToken);
+        if (tokenInfo is null)
         {
-            { "client_id", this.options.ClientId },
-            { "redirect_uri", this.options.RedirectUri },
-            { "scope", scopes },
-            { "response_type", "code" },
-            { "state", state }
-        };
+            string state = Guid.NewGuid().ToString("N");
+            string authorizeUrl = this.BuildAuthorizeUrl(state);
+            return new NetatmoAuthStatusResponse
+            {
+                Authenticated = false,
+                Token = "",
+                Status = "Login required",
+                LoginUrl = authorizeUrl,
+                ExpiresAtUtc = null,
+                StatusCode = 401,
+                Message = "Netatmo authentication required. Please log in first."
+            };
+        }
 
-        string queryString = BuildQueryString(query);
-        return string.Concat(this.options.AuthorizeUrl, "?", queryString);
+        if (tokenInfo.ExpiresAtUtc > DateTime.UtcNow)
+        {
+            return new NetatmoAuthStatusResponse
+            {
+                Authenticated = true,
+                Token = tokenInfo.AccessToken,
+                Status = "Connected",
+                LoginUrl = "",
+                ExpiresAtUtc = tokenInfo.ExpiresAtUtc,
+                StatusCode = 200,
+                Message = ""
+            };
+        }
+
+        Dictionary<string, string> formFields = new Dictionary<string, string>
+        {
+            { "grant_type", "refresh_token" },
+            { "client_id", this.options.Value.ClientId },
+            { "client_secret", this.options.Value.ClientSecret },
+            { "refresh_token", tokenInfo.RefreshToken }
+        };
+        try
+        {
+            tokenInfo = await RequestTokenAsync(formFields, cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            this.logger.Error(ex, "REquest of token throw an exception");
+            string state = Guid.NewGuid().ToString("N");
+            string authorizeUrl = this.BuildAuthorizeUrl(state);
+            return new NetatmoAuthStatusResponse
+            {
+                Authenticated = false,
+                Token = "",
+                Status = "Login required",
+                LoginUrl = authorizeUrl,
+                ExpiresAtUtc = null,
+                StatusCode = 401,
+                Message = "Netatmo authentication required. Please log in first."
+            };
+        }
+
+        await this.netatmoTokenStore.SaveAsync(tokenInfo, cancellationToken);
+        return new NetatmoAuthStatusResponse
+        {
+            Authenticated = true,
+            Token = tokenInfo.AccessToken,
+            Status = "Connected",
+            LoginUrl = "",
+            ExpiresAtUtc = tokenInfo.ExpiresAtUtc,
+            StatusCode = 200,
+            Message = ""
+        };
     }
 
     /// <inheritdoc />
     public async Task<NetatmoTokenInfo> ExchangeCodeAsync(string code, CancellationToken cancellationToken)
     {
-        string scopes = NormalizeScopes(this.options.Scopes);
+        string scopes = NormalizeScopes(this.options.Value.Scopes);
         Dictionary<string, string> formFields = new Dictionary<string, string>
         {
             { "grant_type", "authorization_code" },
-            { "client_id", this.options.ClientId },
-            { "client_secret", this.options.ClientSecret },
+            { "client_id", this.options.Value.ClientId },
+            { "client_secret", this.options.Value.ClientSecret },
             { "code", code },
-            { "redirect_uri", this.options.RedirectUri },
+            { "redirect_uri", this.options.Value.RedirectUri },
             { "scope", scopes }
         };
 
         return await RequestTokenAsync(formFields, cancellationToken);
     }
 
-    /// <inheritdoc />
-    public async Task<NetatmoTokenInfo> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
-    {
-        Dictionary<string, string> formFields = new Dictionary<string, string>
-        {
-            { "grant_type", "refresh_token" },
-            { "client_id", this.options.ClientId },
-            { "client_secret", this.options.ClientSecret },
-            { "refresh_token", refreshToken }
-        };
-
-        return await RequestTokenAsync(formFields, cancellationToken);
-    }
 
     /// <summary>
-    /// Sends a token request to Netatmo and returns the parsed token info.
+    /// 
     /// </summary>
-    /// <param name="formFields">Form payload to send.</param>
-    /// <param name="cancellationToken">Token used to cancel the request.</param>
-    /// <returns>Token information.</returns>
-    private async Task<NetatmoTokenInfo> RequestTokenAsync(
+    /// <param name="formFields"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
+    private  async Task<NetatmoTokenInfo> RequestTokenAsync(
         Dictionary<string, string> formFields,
         CancellationToken cancellationToken
     )
     {
         using FormUrlEncodedContent content = new FormUrlEncodedContent(formFields);
-        using HttpResponseMessage response = await this.httpClient.PostAsync(this.options.TokenUrl, content, cancellationToken);
+        using HttpResponseMessage response = await this.httpClient.PostAsync(this.options.Value.TokenUrl, content, cancellationToken);
 
         string responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -132,6 +183,22 @@ public sealed class NetatmoOAuthClient : INetatmoOAuthClient
             ObtainedAtUtc = obtainedAtUtc,
             ExpiresAtUtc = expiresAtUtc
         };
+    }
+
+    private string BuildAuthorizeUrl(string state)
+    {
+        string scopes = NormalizeScopes(this.options.Value.Scopes);
+        Dictionary<string, string> query = new Dictionary<string, string>
+        {
+            { "client_id", this.options.Value.ClientId },
+            { "redirect_uri", this.options.Value.RedirectUri },
+            { "scope", scopes },
+            { "response_type", "code" },
+            { "state", state }
+        };
+
+        string queryString = BuildQueryString(query);
+        return string.Concat(this.options.Value.AuthorizeUrl, "?", queryString);
     }
 
     /// <summary>

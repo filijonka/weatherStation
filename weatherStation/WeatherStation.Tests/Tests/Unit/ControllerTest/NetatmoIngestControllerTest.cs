@@ -9,6 +9,7 @@ using NUnit.Framework;
 using System;
 using System.Threading.Tasks;
 using System.Threading;
+using API.Interface.Services;
 using WeatherStation.Tests.Tests;
 using It = Moq.It;
 
@@ -23,7 +24,7 @@ public class NetatmoIngestControllerTest
     [Test]
     public async Task Test_Ingest_ReturnsWrittenCount()
     {
-        Mock<INetatmoIngestService> ingestService = new ServiceTestMockBuilder<INetatmoIngestService>.Builder()
+        Mock<INetatmoService> ingestService = new ServiceTestMockBuilder<INetatmoService>.Builder()
             .Setup(s => s.FetchAndStoreAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Task.FromResult(5))
             .Build();
 
@@ -47,7 +48,7 @@ public class NetatmoIngestControllerTest
     [Test]
     public void Test_Ingest_ServiceThrowsException()
     {
-        Mock<INetatmoIngestService> ingestService = new ServiceTestMockBuilder<INetatmoIngestService>.Builder()
+        Mock<INetatmoService> ingestService = new ServiceTestMockBuilder<INetatmoService>.Builder()
             .SetupException(s => s.FetchAndStoreAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), new InvalidOperationException("Service error"))
             .Build();
 

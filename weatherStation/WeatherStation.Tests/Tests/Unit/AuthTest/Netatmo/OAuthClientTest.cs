@@ -1,6 +1,5 @@
 using API.Auth.Netatmo.Options;
 using API.Auth.Netatmo.Services;
-
 using ItExpr = Moq.Protected.ItExpr;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -13,6 +12,9 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using API.Auth.Netatmo.Interface;
+using API.Responses;
+using WeatherStation.Tests.Tests;
 
 namespace WeatherStation.Tests.Tests.Unit.AuthTest.Netatmo;
 
@@ -55,59 +57,6 @@ public class OAuthClientTest : TestBase
     }
 
     /// <summary>
-    /// Build authorize URL should contain all parameters.
-    /// </summary>
-    [Test]
-    public void Test_BuildAuthorizeUrl_ContainsAllParameters()
-    {
-        IOptions<NetatmoOptions> optionsWrapper = Options.Create(this.options);
-        ILogger logger = new LoggerConfiguration().CreateLogger();
-        NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, optionsWrapper, logger);
-
-        const string state = "test-state-123";
-        string url = client.BuildAuthorizeUrl(state);
-
-        Assert.That(url, Does.Contain("client_id=test-client-id"));
-        Assert.That(url, Does.Contain("redirect_uri="));
-        Assert.That(url, Does.Contain("scope=read_station"));
-        Assert.That(url, Does.Contain("response_type=code"));
-        Assert.That(url, Does.Contain($"state={state}"));
-        Assert.That(url, Does.StartWith("https://api.netatmo.com/oauth2/authorize?"));
-    }
-
-    /// <summary>
-    /// Build authorize URL should normalize scopes.
-    /// </summary>
-    [Test]
-    public void Test_BuildAuthorizeUrl_NormalizesScopes()
-    {
-        this.options.Scopes = "read_station,read_thermostat";
-        IOptions<NetatmoOptions> optionsWrapper = Options.Create(this.options);
-        Mock<ILogger> logger = new Mock<ILogger>();
-        logger.Setup(l => l.ForContext<NetatmoOAuthClient>()).Returns(logger.Object);
-        NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, optionsWrapper, logger.Object);
-
-        string url = client.BuildAuthorizeUrl("state");
-
-        Assert.That(url, Does.Contain("scope=read_station%20read_thermostat"));
-    }
-
-    [Test]
-    public void Test_BuildAuthorizeUrl_CollapsesExtraSpacesInScopes()
-    {
-        this.options.Scopes = "read_station,  read_thermostat";
-        IOptions<NetatmoOptions> optionsWrapper = Options.Create(this.options);
-        Mock<ILogger> logger = new Mock<ILogger>();
-        logger.Setup(l => l.ForContext<NetatmoOAuthClient>()).Returns(logger.Object);
-        NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, optionsWrapper, logger.Object);
-
-        string url = client.BuildAuthorizeUrl("state");
-
-        Assert.That(url, Does.Contain("scope=read_station%20read_thermostat"));
-        Assert.That(url, Does.Not.Contain("scope=read_station%20%20read_thermostat"));
-    }
-
-    /// <summary>
     /// Exchange code should return token info.
     /// </summary>
     [Test]
@@ -140,8 +89,10 @@ public class OAuthClientTest : TestBase
         IOptions<NetatmoOptions> optionsWrapper = Options.Create(this.options);
         Mock<ILogger> logger = new Mock<ILogger>();
         logger.Setup(l => l.ForContext<NetatmoOAuthClient>()).Returns(logger.Object);
+        Mock<INetatmoTokenStore> netatmoTokenStore = new Mock<INetatmoTokenStore>();
 
-        NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, optionsWrapper, logger.Object);
+        NetatmoOAuthClient client =
+            new NetatmoOAuthClient(this.httpClient, optionsWrapper, netatmoTokenStore.Object, logger.Object);
 
         NetatmoTokenInfo result = await client.ExchangeCodeAsync("test-code", CancellationToken.None);
 
@@ -175,9 +126,13 @@ public class OAuthClientTest : TestBase
 
         IOptions<NetatmoOptions> optionsWrapper = Options.Create(this.options);
         ILogger logger = new LoggerConfiguration().CreateLogger();
-        NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, optionsWrapper, logger);
+        Mock<INetatmoTokenStore> netatmoTokenStore = new Mock<INetatmoTokenStore>();
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () => await client.ExchangeCodeAsync("test-code", CancellationToken.None));
+        NetatmoOAuthClient client =
+            new NetatmoOAuthClient(this.httpClient, optionsWrapper, netatmoTokenStore.Object, logger);
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await client.ExchangeCodeAsync("test-code", CancellationToken.None));
     }
 
     /// <summary>
@@ -204,33 +159,85 @@ public class OAuthClientTest : TestBase
         IOptions<NetatmoOptions> optionsWrapper = Options.Create(this.options);
         Mock<ILogger> logger = new Mock<ILogger>();
         logger.Setup(l => l.ForContext<NetatmoOAuthClient>()).Returns(logger.Object);
+        Mock<INetatmoTokenStore> netatmoTokenStore = new Mock<INetatmoTokenStore>();
 
-        NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, optionsWrapper, logger.Object);
+        NetatmoOAuthClient client =
+            new NetatmoOAuthClient(this.httpClient, optionsWrapper, netatmoTokenStore.Object, logger.Object);
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () => await client.ExchangeCodeAsync("test-code", CancellationToken.None));
+        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await client.ExchangeCodeAsync("test-code", CancellationToken.None));
     }
 
-    /// <summary>
-    /// Refresh should return new token info.
-    /// </summary>
     [Test]
-    public async Task Test_Refresh_ReturnsNewTokenInfo()
+    public async Task Login_NoToken_ReturnsLoginUrlAndUnauthenticated()
     {
+        Mock<INetatmoTokenStore> tokenStore = new Mock<INetatmoTokenStore>();
+        tokenStore.Setup(x => x.LoadAsync(It.IsAny<CancellationToken>())).ReturnsAsync((NetatmoTokenInfo)null);
+        Mock<ILogger> logger = new Mock<ILogger>();
+        logger.Setup(l => l.ForContext<NetatmoOAuthClient>()).Returns(logger.Object);
+        NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, Options.Create(this.options),
+            tokenStore.Object, logger.Object);
+        NetatmoAuthStatusResponse result = await client.Login(CancellationToken.None);
+        Assert.That(result.Authenticated, Is.False);
+        Assert.That(result.LoginUrl, Does.Contain("authorize"));
+        Assert.That(result.Status, Is.EqualTo("Login required"));
+        Assert.That(result.StatusCode, Is.EqualTo(401));
+    }
+
+    [Test]
+    public async Task Login_ValidToken_ReturnsAuthenticated()
+    {
+        DateTime now = DateTime.UtcNow;
+        NetatmoTokenInfo token = new NetatmoTokenInfo
+        {
+            AccessToken = "valid-token",
+            RefreshToken = "refresh-token",
+            ExpiresAtUtc = now.AddMinutes(10)
+        };
+        Mock<INetatmoTokenStore> tokenStore = new Mock<INetatmoTokenStore>();
+        tokenStore.Setup(x => x.LoadAsync(It.IsAny<CancellationToken>())).ReturnsAsync(token);
+        Mock<ILogger> logger = new Mock<ILogger>();
+        logger.Setup(l => l.ForContext<NetatmoOAuthClient>()).Returns(logger.Object);
+        NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, Options.Create(this.options),
+            tokenStore.Object, logger.Object);
+        NetatmoAuthStatusResponse result = await client.Login(CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Authenticated, Is.True);
+            Assert.That(result.Token, Is.EqualTo("valid-token"));
+            Assert.That(result.Status, Is.EqualTo("Connected"));
+            Assert.That(result.StatusCode, Is.EqualTo(200));
+        });
+    }
+
+    [Test]
+    public async Task Login_ExpiredToken_RefreshSucceeds_ReturnsAuthenticatedAndPersistsToken()
+    {
+        NetatmoTokenInfo expiredToken = new NetatmoTokenInfo
+        {
+            AccessToken = "expired-token",
+            RefreshToken = "refresh-token",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(-10)
+        };
+        Mock<INetatmoTokenStore> tokenStore = new Mock<INetatmoTokenStore>();
+        tokenStore.Setup(x => x.LoadAsync(It.IsAny<CancellationToken>())).ReturnsAsync(expiredToken);
+        tokenStore.Setup(x => x.SaveAsync(It.IsAny<NetatmoTokenInfo>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask).Verifiable();
+        Mock<ILogger> logger = new Mock<ILogger>();
+        logger.Setup(l => l.ForContext<NetatmoOAuthClient>()).Returns(logger.Object);
         string responseJson = JsonSerializer.Serialize(new
         {
-            access_token = "new-access-token",
+            access_token = "new-token",
             refresh_token = "new-refresh-token",
             scope = new[] { "read_station" },
             token_type = "bearer",
             expires_in = 3600
         });
-
         HttpResponseMessage httpResponse = new HttpResponseMessage
         {
             StatusCode = HttpStatusCode.OK,
             Content = new StringContent(responseJson, Encoding.UTF8, "application/json")
         };
-
         this.mockHttpMessageHandler
             .Protected()
             .Setup<Task<HttpResponseMessage>>(
@@ -239,35 +246,39 @@ public class OAuthClientTest : TestBase
                 ItExpr.IsAny<CancellationToken>()
             )
             .ReturnsAsync(httpResponse);
-
-        IOptions<NetatmoOptions> optionsWrapper = Options.Create(this.options);
-        Mock<ILogger> logger = new Mock<ILogger>();
-        logger.Setup(l => l.ForContext<NetatmoOAuthClient>()).Returns(logger.Object);
-
-        NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, optionsWrapper, logger.Object);
-
-        NetatmoTokenInfo result = await client.RefreshAsync("old-refresh-token", CancellationToken.None);
-
-        Assert.That(result, Is.Not.Null);
+        NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, Options.Create(this.options),
+            tokenStore.Object, logger.Object);
+        NetatmoAuthStatusResponse result = await client.Login(CancellationToken.None);
         Assert.Multiple(() =>
         {
-            Assert.That(result.AccessToken, Is.EqualTo("new-access-token"));
-            Assert.That(result.RefreshToken, Is.EqualTo("new-refresh-token"));
+            Assert.That(result.Authenticated, Is.True);
+            Assert.That(result.Token, Is.EqualTo("new-token"));
+            Assert.That(result.Status, Is.EqualTo("Connected"));
+            Assert.That(result.StatusCode, Is.EqualTo(200));
         });
+        tokenStore.Verify(
+            x => x.SaveAsync(It.Is<NetatmoTokenInfo>(t => t.AccessToken == "new-token"), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
-    /// <summary>
-    /// Refresh should throw exception on expired refresh token.
-    /// </summary>
     [Test]
-    public void Test_Refresh_ExpiredRefreshToken_ThrowsException()
+    public async Task Login_ExpiredToken_RefreshFails_ReturnsLoginUrlAndUnauthenticated()
     {
+        NetatmoTokenInfo expiredToken = new NetatmoTokenInfo
+        {
+            AccessToken = "expired-token",
+            RefreshToken = "refresh-token",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(-10)
+        };
+        Mock<INetatmoTokenStore> tokenStore = new Mock<INetatmoTokenStore>();
+        tokenStore.Setup(x => x.LoadAsync(It.IsAny<CancellationToken>())).ReturnsAsync(expiredToken);
+        Mock<ILogger> logger = new Mock<ILogger>();
+        logger.Setup(l => l.ForContext<NetatmoOAuthClient>()).Returns(logger.Object);
         HttpResponseMessage httpResponse = new HttpResponseMessage
         {
             StatusCode = HttpStatusCode.BadRequest,
             Content = new StringContent("{\"error\":\"invalid_grant\"}")
         };
-
         this.mockHttpMessageHandler
             .Protected()
             .Setup<Task<HttpResponseMessage>>(
@@ -276,13 +287,49 @@ public class OAuthClientTest : TestBase
                 ItExpr.IsAny<CancellationToken>()
             )
             .ReturnsAsync(httpResponse);
+        NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, Options.Create(this.options),
+            tokenStore.Object, logger.Object);
+        NetatmoAuthStatusResponse result = await client.Login(CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Authenticated, Is.False);
+            Assert.That(result.LoginUrl, Does.Contain("authorize"));
+            Assert.That(result.Status, Is.EqualTo("Login required"));
+            Assert.That(result.StatusCode, Is.EqualTo(401));
+        });
+    }
 
-        IOptions<NetatmoOptions> optionsWrapper = Options.Create(this.options);
+    [Test]
+    public async Task Login_ExpiredToken_RefreshReturnsNull_ReturnsLoginUrlAndUnauthenticated()
+    {
+        NetatmoTokenInfo expiredToken = new NetatmoTokenInfo
+        {
+            AccessToken = "expired-token",
+            RefreshToken = "refresh-token",
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(-10)
+        };
+        Mock<INetatmoTokenStore> tokenStore = new Mock<INetatmoTokenStore>();
+        tokenStore.Setup(x => x.LoadAsync(It.IsAny<CancellationToken>())).ReturnsAsync(expiredToken);
         Mock<ILogger> logger = new Mock<ILogger>();
         logger.Setup(l => l.ForContext<NetatmoOAuthClient>()).Returns(logger.Object);
-
-        NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, optionsWrapper, logger.Object);
-
-        Assert.ThrowsAsync<InvalidOperationException>(async () => await client.RefreshAsync("expired-token", CancellationToken.None));
+        this.mockHttpMessageHandler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent("{\"invalid\":\"json\"}")
+            });
+        NetatmoOAuthClient client = new NetatmoOAuthClient(this.httpClient, Options.Create(this.options),
+            tokenStore.Object, logger.Object);
+        NetatmoAuthStatusResponse result = await client.Login(CancellationToken.None);
+        Assert.That(result.Authenticated, Is.False);
+        Assert.That(result.LoginUrl, Does.Contain("authorize"));
+        Assert.That(result.Status, Is.EqualTo("Login required"));
+        Assert.That(result.StatusCode, Is.EqualTo(401));
     }
 }

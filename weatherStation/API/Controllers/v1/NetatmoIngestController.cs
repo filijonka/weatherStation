@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 using System.Threading;
 using API.Filters;
+using API.Interface.Services;
 
 namespace API.Controllers.v1;
 
@@ -16,15 +17,15 @@ namespace API.Controllers.v1;
 [Route("api/v{version:apiVersion}/ingest")]
 public sealed class NetatmoIngestController : ControllerBase
 {
-    private readonly INetatmoIngestService ingestService;
+    private readonly INetatmoService service;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="NetatmoIngestController"/> class.
     /// </summary>
-    /// <param name="ingestService">Ingestion service.</param>
-    public NetatmoIngestController(INetatmoIngestService ingestService)
+    /// <param name="service">Ingestion service.</param>
+    public NetatmoIngestController(INetatmoService service)
     {
-        this.ingestService = ingestService;
+        this.service = service;
     }
 
     /// <summary>
@@ -37,7 +38,7 @@ public sealed class NetatmoIngestController : ControllerBase
     public async Task<ActionResult<IngestResponse>> IngestAsync(CancellationToken cancellationToken)
     {
         string accessToken = (string)HttpContext.Items[NetatmoAuthenticatedFilter.HttpContextItemAccessTokenKey]!;
-        int numberOfPoints = await this.ingestService.FetchAndStoreAsync(accessToken, cancellationToken);
+        int numberOfPoints = await this.service.FetchAndStoreAsync(accessToken, cancellationToken);
         IngestResponse response = new IngestResponse(numberOfPoints);
         return this.Ok(response);
     }

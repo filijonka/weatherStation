@@ -1,7 +1,5 @@
 using API.Auth.Netatmo.Interface;
-using API.Helpers;
 using API.Interface.Logic;
-using API.Responses;
 using API.Exceptions;
 
 using Asp.Versioning;

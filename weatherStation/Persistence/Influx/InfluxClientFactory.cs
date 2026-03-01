@@ -1,5 +1,3 @@
-using Persistance.Influx;
-
 using InfluxDB.Client;
 using Microsoft.Extensions.Options;
 using System;

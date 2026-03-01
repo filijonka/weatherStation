@@ -1,3 +1,4 @@
+using System;
 using API.Options;
 
 namespace API.Auth.Netatmo.Options;
@@ -47,6 +48,16 @@ public class NetatmoOptions : ValidatedOptionsBase
     /// when returning status to Grafana. Defaults to http://localhost:8080.
     /// </summary>
     public string ApiBaseUrl { get; init; } = "http://localhost:8080";
+
+    /// <summary>
+    /// How often the Netatmo api will be called
+    /// </summary>
+    public TimeSpan Frequency { get; init; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(0);
 
     /// <inheritdoc />
     public override void Validate()

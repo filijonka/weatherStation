@@ -1,13 +1,13 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using API.Auth.Netatmo.Interface;
 using API.Helpers;
 using API.Responses;
 using Application.Models;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace API.Filters;
 
@@ -22,14 +22,20 @@ public class NetatmoAuthenticatedFilter : IAsyncActionFilter
     public const string HttpContextItemAccessTokenKey = "NetatmoAccessToken";
 
     private readonly INetatmoTokenStore tokenStore;
+    private readonly INetatmoOAuthClient netatmoOAuthClient;
 
     /// <summary>
     /// Constructor
     /// </summary>
     /// <param name="tokenStore"></param>
-    public NetatmoAuthenticatedFilter(INetatmoTokenStore tokenStore)
+    /// <param name="netatmoOAuthClient"></param>
+    public NetatmoAuthenticatedFilter(
+        INetatmoTokenStore tokenStore,
+        INetatmoOAuthClient netatmoOAuthClient
+    )
     {
         this.tokenStore = tokenStore;
+        this.netatmoOAuthClient = netatmoOAuthClient;
     }
 
     /// <inheritdoc />
@@ -39,11 +45,7 @@ public class NetatmoAuthenticatedFilter : IAsyncActionFilter
         HttpRequest request = context.HttpContext.Request;
 
         string baseUrl = $"{request.Scheme}://{request.Host}";
-        NetatmoAuthStatusResponse authStatus = await NetatmoAuthHelper.GetAuthStatusAsync(
-            this.tokenStore,
-            baseUrl,
-            cancellationToken
-        );
+        NetatmoAuthStatusResponse authStatus = await this.netatmoOAuthClient.Login(cancellationToken);
 
         if (!authStatus.Authenticated)
         {

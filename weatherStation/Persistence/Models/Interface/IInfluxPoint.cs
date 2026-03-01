@@ -41,4 +41,10 @@ public interface IInfluxPoint
     /// <param name="module">Source Netatmo module containing dashboard values and metadata.</param>
     void Initialize(StationModule module);
 
+    /// <summary>
+    /// Sets the dashboard data in Fields
+    /// </summary>
+    /// <param name="dashboardData"></param>
+    void SetFields(Dashboard dashboardData);
+
 }

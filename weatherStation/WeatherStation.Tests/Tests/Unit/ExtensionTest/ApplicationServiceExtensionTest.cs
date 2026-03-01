@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using System.Collections.Generic;
 using System.Linq;
+using API.Interface.Services;
 using Persistence.Influx;
 using Persistence.Influx.Interface;
 
@@ -37,7 +38,7 @@ public class ApplicationServiceExtensionTest : TestBase
         {
             Assert.That(services.Any(s => s.ServiceType == typeof(IInfluxClientFactory)), Is.True);
             Assert.That(services.Any(s => s.ServiceType == typeof(IInfluxWriteService)), Is.True);
-            Assert.That(services.Any(s => s.ServiceType == typeof(API.Interface.INetatmoIngestService)), Is.True);
+            Assert.That(services.Any(s => s.ServiceType == typeof(INetatmoService)), Is.True);
             Assert.That(services.Any(s => s.ServiceType == typeof(API.Auth.Netatmo.Interface.INetatmoTokenStore)), Is.True);
             Assert.That(services.Any(s => s.ServiceType == typeof(API.Auth.Netatmo.Interface.INetatmoOAuthClient)), Is.True);
         });
@@ -71,7 +72,7 @@ public class ApplicationServiceExtensionTest : TestBase
         services.AddApplicationServices(configuration);
 
         ServiceProvider serviceProvider = services.BuildServiceProvider();
-        IOptions<Persistance.Influx.InfluxOptions> influxOptions = serviceProvider.GetService<Microsoft.Extensions.Options.IOptions<Persistance.Influx.InfluxOptions>>();
+        IOptions<InfluxOptions> influxOptions = serviceProvider.GetService<Microsoft.Extensions.Options.IOptions<InfluxOptions>>();
         Assert.That(influxOptions, Is.Not.Null);
         Assert.DoesNotThrow(() => _ = influxOptions!.Value);
 

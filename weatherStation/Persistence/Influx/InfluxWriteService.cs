@@ -1,18 +1,19 @@
-using System;
-using InfluxDB.Client.Api.Domain;
-using InfluxDB.Client.Writes;
-using InfluxDB.Client;
-using Microsoft.Extensions.Options;
-using Serilog;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using System.Threading;
-using Persistence.Influx;
+
 using Persistence.Influx.Interface;
-using Persistence.Models;
 using Persistence.Models.Interface;
 
-namespace Persistance.Influx;
+using InfluxDB.Client;
+using InfluxDB.Client.Api.Domain;
+using InfluxDB.Client.Writes;
+using Microsoft.Extensions.Options;
+using Serilog;
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using InfluxDB.Client.Core.Exceptions;
+
+namespace Persistence.Influx;
 
 /// <inheritdoc />
 public sealed class InfluxWriteService : IInfluxWriteService
@@ -65,17 +66,21 @@ public sealed class InfluxWriteService : IInfluxWriteService
             points.Add(point);
         }
 
-        this.logger.Information("Writing {Count} readings to InfluxDB bucket {Bucket}", points.Count, this.options.Bucket);
 
         try
         {
             IWriteApiAsync writeApi = this.influxClientFactory.GetWriteClient().GetWriteApiAsync();
             await writeApi.WritePointsAsync(points, this.options.Bucket, this.options.Org, cancellationToken);
-
+            this.logger.Information("Wrote {Count} readings to InfluxDB bucket {Bucket}", points.Count, this.options.Bucket);
+        }
+        catch (HttpException)
+        {
+            this.logger.Error("We got connection error from influxdb");
+            return 0;
         }
         catch (Exception ex)
         {
-            this.logger.Error(ex, "We got an exception in writing to influx");
+            this.logger.Error(ex,"We got an exception in writing  points to influx");
             return 0;
         }
         return points.Count;

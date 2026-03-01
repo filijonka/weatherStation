@@ -43,12 +43,12 @@ public class NetatmoLogicDataProviderDeserializationTest
 
         IOptions<NetatmoOptions> optionsWrapper = Options.Create(netatmoOptions);
         Mock<ILogger> mockLogger = new Mock<ILogger>();
-        Mock<IMemoryCache> mockMemoryCache = new Mock<IMemoryCache>();
+        var memoryCache = new MemoryCache(new MemoryCacheOptions());
 
         NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
             httpClientFactoryMock.Object,
             optionsWrapper,
-            mockMemoryCache.Object,
+            memoryCache,
             mockLogger.Object
         );
 
@@ -452,12 +452,12 @@ public class NetatmoLogicDataProviderDeserializationTest
         });
 
         Mock<ILogger> mockLogger = new Mock<ILogger>();
-        Mock<IMemoryCache> mockMemoryCache = new Mock<IMemoryCache>();
+        var memoryCache = new MemoryCache(new MemoryCacheOptions());
 
         NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
             mockHttpClientFactory.Object,
             options,
-            mockMemoryCache.Object,
+            memoryCache,
             mockLogger.Object
         );
 
@@ -534,12 +534,12 @@ public class NetatmoLogicDataProviderDeserializationTest
         });
 
         Mock<ILogger> mockLogger = new Mock<ILogger>();
-        Mock<IMemoryCache> mockMemoryCache = new Mock<IMemoryCache>();
+        var memoryCache = new MemoryCache(new MemoryCacheOptions());
 
         NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
             mockHttpClientFactory.Object,
             options,
-            mockMemoryCache.Object,
+            memoryCache,
             mockLogger.Object
         );
 
@@ -609,12 +609,12 @@ public class NetatmoLogicDataProviderDeserializationTest
         });
 
         Mock<ILogger> mockLogger = new Mock<ILogger>();
-        Mock<IMemoryCache> mockMemoryCache = new Mock<IMemoryCache>();
+        var memoryCache = new MemoryCache(new MemoryCacheOptions());
 
         NetatmoLogicDataProvider provider = new NetatmoLogicDataProvider(
             mockHttpClientFactory.Object,
             options,
-            mockMemoryCache.Object,
+            memoryCache,
             mockLogger.Object
         );
 

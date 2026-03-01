@@ -1,4 +1,4 @@
-namespace Persistance.Influx;
+namespace Persistence.Influx;
 
 /// <summary>
 /// Configuration options for InfluxDB.

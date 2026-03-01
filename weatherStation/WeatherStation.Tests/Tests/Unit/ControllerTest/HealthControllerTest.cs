@@ -25,7 +25,8 @@ public class HealthControllerTest
     {
         HealthController controller = new HealthController(
             new Mock<INetatmoTokenStore>().Object,
-            new Mock<IOptions<NetatmoOptions>>().Object
+            new Mock<IOptions<NetatmoOptions>>().Object,
+            new Mock<INetatmoOAuthClient>().Object
         );
 
         ActionResult result = controller.GetHealth();
@@ -51,10 +52,24 @@ public class HealthControllerTest
         NetatmoOptions options = new NetatmoOptions();
         Mock<IOptions<NetatmoOptions>> optionsMock = new Mock<IOptions<NetatmoOptions>>();
         optionsMock.Setup(o => o.Value).Returns(options);
+        Mock<INetatmoOAuthClient> oauthClientMock = new Mock<INetatmoOAuthClient>();
+        oauthClientMock
+            .Setup(c => c.Login(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new NetatmoAuthStatusResponse
+            {
+                Authenticated = true,
+                StatusCode = 200,
+                Status = "Connected",
+                LoginUrl = "",
+                Token = "test-token",
+                Message = "Netatmo authentication required. Please log in first."
+            });
 
+            
         HealthController controller = new HealthController(
             tokenStoreMock.Object,
-            optionsMock.Object
+            optionsMock.Object,
+            oauthClientMock.Object
         );
 
         // Setup HttpContext for Request.Scheme and Request.Host
@@ -103,12 +118,23 @@ public class HealthControllerTest
         Mock<IOptions<NetatmoOptions>> optionsMock = new Mock<IOptions<NetatmoOptions>>();
         optionsMock.Setup(o => o.Value).Returns(options);
 
+        Mock<INetatmoOAuthClient> oauthClientMock = new Mock<INetatmoOAuthClient>();
+        oauthClientMock
+            .Setup(c => c.Login(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new NetatmoAuthStatusResponse
+            {
+                Authenticated = false,
+                StatusCode = 401,
+                Status = "Login required",
+                LoginUrl = "http://localhost:8080/api/v1/netatmo/auth/login",
+                Message = "Netatmo authentication required. Please log in first."
+            });
+
         HealthController controller = new HealthController(
             tokenStoreMock.Object,
-            optionsMock.Object
+            optionsMock.Object,
+            oauthClientMock.Object
         );
-
-        // Setup HttpContext
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -151,9 +177,22 @@ public class HealthControllerTest
         Mock<IOptions<NetatmoOptions>> optionsMock = new Mock<IOptions<NetatmoOptions>>();
         optionsMock.Setup(o => o.Value).Returns(options);
 
+        var oauthClientMock = new Mock<INetatmoOAuthClient>();
+        oauthClientMock
+            .Setup(c => c.Login(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new NetatmoAuthStatusResponse
+            {
+                Authenticated = false,
+                StatusCode = 401,
+                Status = "Login required",
+                LoginUrl = "http://localhost:8080/api/v1/netatmo/auth/login",
+                Message = "Netatmo authentication required. Please log in first."
+            });
+
         HealthController controller = new HealthController(
             tokenStoreMock.Object,
-            optionsMock.Object
+            optionsMock.Object,
+            oauthClientMock.Object
         );
 
         // Setup HttpContext
@@ -197,9 +236,22 @@ public class HealthControllerTest
         Mock<IOptions<NetatmoOptions>> optionsMock = new Mock<IOptions<NetatmoOptions>>();
         optionsMock.Setup(o => o.Value).Returns(options);
 
+        Mock<INetatmoOAuthClient> oauthClientMock = new Mock<INetatmoOAuthClient>();
+        oauthClientMock
+            .Setup(c => c.Login(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new NetatmoAuthStatusResponse
+            {
+                Authenticated = false,
+                StatusCode = 401,
+                Status = "Login required",
+                LoginUrl = "https://api.example.com/api/v1/netatmo/auth/login",
+                Message = "Netatmo authentication required. Please log in first."
+            });
+
         HealthController controller = new HealthController(
             tokenStoreMock.Object,
-            optionsMock.Object
+            optionsMock.Object,
+            oauthClientMock.Object
         );
 
         // Setup HttpContext (should not be used when ApiBaseUrl is set)
@@ -221,46 +273,5 @@ public class HealthControllerTest
         // Assert
         Assert.That(result.Value, Is.Not.Null);
         Assert.That(result.Value.LoginUrl, Is.EqualTo("https://api.example.com/api/v1/netatmo/auth/login"));
-    }
-
-    [Test]
-    public async Task Test_GetNetatmoStatusAsync_WhenApiBaseUrlProvided_ButEmpty()
-    {
-        // Arrange
-        Mock<INetatmoTokenStore> tokenStoreMock = new Mock<INetatmoTokenStore>();
-        tokenStoreMock.Setup(s => s.LoadAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync((NetatmoTokenInfo)null);
-
-        NetatmoOptions options = new NetatmoOptions
-        {
-            ApiBaseUrl = ""
-        };
-        Mock<IOptions<NetatmoOptions>> optionsMock = new Mock<IOptions<NetatmoOptions>>();
-        optionsMock.Setup(o => o.Value).Returns(options);
-
-        HealthController controller = new HealthController(
-            tokenStoreMock.Object,
-            optionsMock.Object
-        );
-
-        // Setup HttpContext (should not be used when ApiBaseUrl is set)
-        controller.ControllerContext = new ControllerContext
-        {
-            HttpContext = new DefaultHttpContext
-            {
-                Request =
-                {
-                    Scheme = "http",
-                    Host = new HostString("localhost:8080")
-                }
-            }
-        };
-
-        // Act
-        ActionResult<NetatmoAuthStatusResponse> result = await controller.GetNetatmoStatusAsync(CancellationToken.None);
-
-        // Assert
-        Assert.That(result.Value, Is.Not.Null);
-        Assert.That(result.Value.LoginUrl, Is.EqualTo("http://localhost:8080/api/v1/netatmo/auth/login"));
     }
 }

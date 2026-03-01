@@ -1,17 +1,20 @@
 using API.Auth.Netatmo.Interface;
 using API.Auth.Netatmo.Options;
 using API.Auth.Netatmo.Services;
+using API.Background.Tasks;
 using API.Filters;
-using API.Interface;
+using API.Helpers;
+using API.Interface.Helpers;
 using API.Interface.Logic;
+using API.Interface.Services;
+using API.Interface.Tasks;
 using API.Logic;
 using API.Options;
 using API.Services;
+using BackgroundNetatmoService = API.Background.Services.NetatmoService;
 using Microsoft.Extensions.Caching.Memory;
-using Persistance.Influx;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Options;
 using Persistence.Influx;
 using Persistence.Influx.Interface;
@@ -41,12 +44,16 @@ public static class ApplicationServiceExtension
         services.AddSingleton<IInfluxClientFactory, InfluxClientFactory>();
         services.AddSingleton<IInfluxWriteService, InfluxWriteService>();
         services.AddSingleton<IMemoryCache, MemoryCache>();
-        services.AddSingleton<INetatmoIngestService, NetatmoIngestService>();
+        services.AddSingleton<INetatmoService, NetatmoService>();
         services.AddSingleton<INetatmoTokenStore, NetatmoTokenStore>();
+        services.AddSingleton<INetatmoLogicDataProvider, NetatmoLogicDataProvider>();
+        services.AddSingleton<INetatmoTask, NetatmoTask>();
+        
         services.AddHttpClient<INetatmoOAuthClient, NetatmoOAuthClient>();
         services.AddHttpClient();
-        services.AddSingleton<INetatmoLogicDataProvider, NetatmoLogicDataProvider>();
         services.AddScoped<NetatmoAuthenticatedFilter>();
+        services.AddTransient<ITaskDelayer, TaskDelayer>();
+        services.AddHostedService<BackgroundNetatmoService>();
         return services;
     }
 

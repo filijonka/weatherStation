@@ -22,19 +22,23 @@ public class HealthController : ControllerBase
 {
     private readonly INetatmoTokenStore tokenStore;
     private readonly IOptions<NetatmoOptions> options;
+    private readonly INetatmoOAuthClient netatmoOAuthClient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HealthController"/> class.
     /// </summary>
     /// <param name="tokenStore">Token store.</param>
     /// <param name="options">Netatmo options.</param>
+    /// <param name="netatmoOAuthClient"></param>
     public HealthController(
         INetatmoTokenStore tokenStore,
-        IOptions<NetatmoOptions> options
+        IOptions<NetatmoOptions> options,
+        INetatmoOAuthClient netatmoOAuthClient
     )
     {
         this.tokenStore = tokenStore;
         this.options = options;
+        this.netatmoOAuthClient = netatmoOAuthClient;
     }
 
     /// <summary>
@@ -56,21 +60,6 @@ public class HealthController : ControllerBase
     [HttpGet("netatmo")]
     public async Task<ActionResult<NetatmoAuthStatusResponse>> GetNetatmoStatusAsync(CancellationToken cancellationToken)
     {
-        string baseUrl = "";
-        if (!string.IsNullOrEmpty(this.options.Value.ApiBaseUrl))
-        {
-            baseUrl = this.options.Value.ApiBaseUrl.Trim().TrimEnd('/');
-        }
-        if (string.IsNullOrEmpty(baseUrl))
-        {
-            baseUrl = $"{this.Request.Scheme}://{this.Request.Host}";
-        }
-
-        return await NetatmoAuthHelper.GetAuthStatusAsync(
-            this.tokenStore,
-            baseUrl,
-            cancellationToken
-        );
-
+        return await this.netatmoOAuthClient.Login(cancellationToken);
     }
 }

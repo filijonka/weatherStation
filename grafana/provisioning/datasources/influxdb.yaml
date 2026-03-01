@@ -5,11 +5,11 @@ datasources:
     uid: influxdb
     type: influxdb
     access: proxy
-    url: http://influxdb:8086
+    url: http://influxdb:8181
     isDefault: true
     jsonData:
-      version: Flux
-      organization: ${INFLUXDB_ORG}
-      defaultBucket: ${INFLUXDB_BUCKET}
+      version: SQL
+      dbName: ${INFLUXDB_BUCKET}
+      insecureGrpc: true
     secureJsonData:
       token: ${INFLUXDB_TOKEN}

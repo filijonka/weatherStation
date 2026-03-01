@@ -7,6 +7,7 @@ using Serilog;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using API.Responses;
 
 namespace API.Controllers.v1;
 
@@ -44,11 +45,15 @@ public sealed class NetatmoAuthController : ControllerBase
     /// </summary>
     /// <returns>Redirect result to Netatmo authorization URL.</returns>
     [HttpGet("auth/login")]
-    public ActionResult Login()
+    public async Task<ActionResult> Login(CancellationToken cancellationToken)
     {
-        string state = Guid.NewGuid().ToString("N");
-        string authorizeUrl = this.oauthClient.BuildAuthorizeUrl(state);
-        return this.Redirect(authorizeUrl);
+        NetatmoAuthStatusResponse response = await this.oauthClient.Login(cancellationToken);
+        if (response.Authenticated)
+        {
+            return new JsonResult(new { scope = response.StatusCode, expiresAtUtc = response.ExpiresAtUtc });
+        }
+        return Redirect(response.LoginUrl);
+
     }
 
     /// <summary>
@@ -89,4 +94,6 @@ public sealed class NetatmoAuthController : ControllerBase
             });
         }
     }
+    
+    
 }

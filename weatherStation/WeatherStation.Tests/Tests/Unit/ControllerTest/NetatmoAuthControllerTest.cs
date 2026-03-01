@@ -9,6 +9,7 @@ using System;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using API.Responses;
 
 namespace WeatherStation.Tests.Tests.Unit.ControllerTest;
 
@@ -16,15 +17,20 @@ namespace WeatherStation.Tests.Tests.Unit.ControllerTest;
 public class NetatmoAuthControllerTest
 {
     [Test]
-    public void Test_Login_RedirectsToAuthorizeUrl()
+    public async Task Test_Login_WhenAuthenticated_ReturnsJsonResult()
     {
         Mock<INetatmoOAuthClient> oauthClientMock = new Mock<INetatmoOAuthClient>();
-        oauthClientMock
-            .Setup(c => c.BuildAuthorizeUrl(It.Is<string>(s => !string.IsNullOrWhiteSpace(s) && s.Length == 32)))
-            .Returns("https://example.invalid/oauth2/authorize?state=test");
-
         Mock<INetatmoTokenStore> tokenStoreMock = new Mock<INetatmoTokenStore>();
         Mock<ILogger> loggerMock = new Mock<ILogger>();
+
+        DateTime expiresAtUtc = new DateTime(2026, 2, 28, 12, 0, 0, DateTimeKind.Utc);
+        NetatmoAuthStatusResponse response = new NetatmoAuthStatusResponse
+        {
+            Authenticated = true,
+            StatusCode = 200,
+            ExpiresAtUtc = expiresAtUtc
+        };
+        oauthClientMock.Setup(x => x.Login(It.IsAny<CancellationToken>())).ReturnsAsync(response);
 
         NetatmoAuthController controller = new NetatmoAuthController(
             oauthClientMock.Object,
@@ -32,13 +38,43 @@ public class NetatmoAuthControllerTest
             loggerMock.Object
         );
 
-        ActionResult result = controller.Login();
+        ActionResult result = await controller.Login(CancellationToken.None);
+        Assert.That(result, Is.InstanceOf<JsonResult>());
+        JsonResult jsonResult = result as JsonResult;
+        Assert.That(jsonResult, Is.Not.Null);
+        object value = jsonResult.Value;
+        Assert.That(value, Is.Not.Null);
+        Assert.That(value.GetType().GetProperty("scope"), Is.Not.Null);
+        Assert.That(value.GetType().GetProperty("expiresAtUtc"), Is.Not.Null);
+        Assert.That(value.GetType().GetProperty("scope")?.GetValue(value), Is.EqualTo(200));
+        Assert.That(value.GetType().GetProperty("expiresAtUtc")?.GetValue(value), Is.EqualTo(expiresAtUtc));
+    }
 
+    [Test]
+    public async Task Test_Login_WhenNotAuthenticated_ReturnsRedirect()
+    {
+        Mock<INetatmoOAuthClient> oauthClientMock = new Mock<INetatmoOAuthClient>();
+        Mock<INetatmoTokenStore> tokenStoreMock = new Mock<INetatmoTokenStore>();
+        Mock<ILogger> loggerMock = new Mock<ILogger>();
+
+        NetatmoAuthStatusResponse response = new NetatmoAuthStatusResponse
+        {
+            Authenticated = false,
+            LoginUrl = "http://login.url"
+        };
+        oauthClientMock.Setup(x => x.Login(It.IsAny<CancellationToken>())).ReturnsAsync(response);
+
+        NetatmoAuthController controller = new NetatmoAuthController(
+            oauthClientMock.Object,
+            tokenStoreMock.Object,
+            loggerMock.Object
+        );
+
+        ActionResult result = await controller.Login(CancellationToken.None);
         Assert.That(result, Is.InstanceOf<RedirectResult>());
-        RedirectResult redirect = result as RedirectResult;
-        Assert.That(redirect, Is.Not.Null);
-        Assert.That(redirect.Url, Is.EqualTo("https://example.invalid/oauth2/authorize?state=test"));
-        oauthClientMock.Verify(c => c.BuildAuthorizeUrl(It.IsAny<string>()), Times.Once);
+        RedirectResult redirectResult = result as RedirectResult;
+        Assert.That(redirectResult, Is.Not.Null);
+        Assert.That(redirectResult.Url, Is.EqualTo("http://login.url"));
     }
 
     [Test]

@@ -1,9 +1,8 @@
-using Persistance.Influx;
-
-using InfluxDB.Client;
-using Microsoft.Extensions.Options;
+using System;
 using Persistence.Influx;
 using Persistence.Influx.Interface;
+
+using Microsoft.Extensions.Options;
 
 namespace WeatherStation.Tests.Tests.Unit.PersistenceTest;
 
@@ -50,4 +49,22 @@ public class InfluxClientFactoryTest
         Assert.That(writeClient, Is.Not.Null);
         factory.Dispose();
     }
+    [Test]
+    public void Test_Dispose_IsIdempotent()
+    {
+        InfluxOptions options = new InfluxOptions { Url = "http://localhost:8086", Token = "token" };
+        IOptions<InfluxOptions> optionsWrapper = Options.Create(options);
+        InfluxClientFactory factory = new InfluxClientFactory(optionsWrapper);
+        factory.Dispose();
+        Assert.DoesNotThrow(() => factory.Dispose());
+    }
+
+    [Test]
+    public void Test_InvalidOptions_Throws()
+    {
+        InfluxOptions options = new InfluxOptions { Url = "", Token = "" };
+        IOptions<InfluxOptions> optionsWrapper = Options.Create(options);
+        Assert.Throws<ArgumentException>(() => new InfluxClientFactory(optionsWrapper));
+    }
+
 }

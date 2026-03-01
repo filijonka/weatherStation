@@ -1,11 +1,12 @@
-using System.Threading.Tasks;
 using System.Threading;
-namespace API.Interface;
+using System.Threading.Tasks;
+
+namespace API.Interface.Services;
 
 /// <summary>
 /// Service abstraction for ingesting weather data.
 /// </summary>
-public interface INetatmoIngestService
+public interface INetatmoService
 {
     /// <summary>
     /// Fetches external data and persists it to storage.
