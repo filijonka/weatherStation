@@ -43,32 +43,18 @@ public class NetatmoRainPoint : IInfluxPoint
         this.fields.Clear();
         this.SetFields(device.DashboardData);
         this.tags.Clear();
-        this.tags["device_id"] = device.Id;
-        this.tags["device_type"] = device.Type;
-        this.tags["home_id"] = device.HomeId;
-        this.tags["home_name"] = device.HomeName;
-        this.tags["module_name"] = device.ModuleName;
-
+        this.SetTags(device);
     }
 
     /// <inheritdoc />
-    public void Initialize(StationModule module)
+    public void Initialize(Device device, StationModule module)
     {
         this.TimestampUtc = DateTimeOffset.FromUnixTimeSeconds(module.DashboardData.TimeUtc).UtcDateTime;
         this.fields.Clear();
         this.SetFields(module.DashboardData);
 
         this.tags.Clear();
-        this.tags["module_id"] = module.Id;
-        this.tags["module_type"] = module.Type;
-        this.tags["module_name"] = module.ModuleName;
-        
-        this.tags["room_id"] = module.RoomId;
-
-        if (!string.IsNullOrWhiteSpace(module.RoomName))
-        {
-            this.tags["room_name"] = module.RoomName;
-        }
+        this.SetTags(device, module);
     }
 
     /// <inheritdoc />
@@ -90,4 +76,38 @@ public class NetatmoRainPoint : IInfluxPoint
         }
 
     }
+    /// <inheritdoc />
+    public void SetTags(Device device)
+    {
+        this.tags.Clear();
+        this.tags["module_id"] = device.Id;
+        this.tags["module_type"] = device.Type;
+        this.tags["home_id"] = device.HomeId;
+        this.tags["home_name"] = device.HomeName;
+        this.tags["module_name"] = device.ModuleName;
+        this.tags["room_id"] = device.RoomId;
+
+        if (!string.IsNullOrWhiteSpace(device.RoomName))
+        {
+            this.tags["room_name"] = device.RoomName;
+        }
+    }
+
+    /// <inheritdoc />
+    public void SetTags(Device device, StationModule module)
+    {
+        this.tags.Clear();
+        this.tags["module_id"] = module.Id;
+        this.tags["module_type"] = module.Type;
+        this.tags["home_id"] = device.HomeId;
+        this.tags["home_name"] = device.HomeName;
+        this.tags["module_name"] = module.ModuleName;
+        this.tags["room_id"] = module.RoomId;
+
+        if (!string.IsNullOrWhiteSpace(module.RoomName))
+        {
+            this.tags["room_name"] = module.RoomName;
+        }
+    }
+
 }

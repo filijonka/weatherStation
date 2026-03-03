@@ -38,8 +38,9 @@ public interface IInfluxPoint
     /// <summary>
     /// Read in a module and populate the object.
     /// </summary>
+    /// <param name="device"></param>
     /// <param name="module">Source Netatmo module containing dashboard values and metadata.</param>
-    void Initialize(StationModule module);
+    void Initialize(Device device, StationModule module);
 
     /// <summary>
     /// Sets the dashboard data in Fields
@@ -47,4 +48,16 @@ public interface IInfluxPoint
     /// <param name="dashboardData"></param>
     void SetFields(Dashboard dashboardData);
 
+    /// <summary>
+    /// Set the tags for a device
+    /// </summary>
+    /// <param name="device"></param>
+    void SetTags(Device device);
+
+    /// <summary>
+    /// Sets the tags for a module using the device as well for connect it to a home
+    /// </summary>
+    /// <param name="device"></param>
+    /// <param name="module"></param>
+    void SetTags(Device device, StationModule module);
 }
