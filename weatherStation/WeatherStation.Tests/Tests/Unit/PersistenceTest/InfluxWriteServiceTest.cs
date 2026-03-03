@@ -52,22 +52,22 @@ public class InfluxWriteServiceTest
                 {
                     case "NAModule1": // Outdoor
                         NetatmoOutdoorPoint outdoor = new NetatmoOutdoorPoint("outdoor");
-                        outdoor.Initialize(module);
+                        outdoor.Initialize(device, module);
                         points.Add(outdoor);
                         break;
                     case "NAModule3": // Rain
                         NetatmoRainPoint rain = new NetatmoRainPoint("rain");
-                        rain.Initialize(module);
+                        rain.Initialize(device, module);
                         points.Add(rain);
                         break;
                     case "NAModule2": // Wind
                         NetatmoWindPoint wind = new NetatmoWindPoint("wind");
-                        wind.Initialize(module);
+                        wind.Initialize(device, module);
                         points.Add(wind);
                         break;
                     case "NAModule4": // Indoor module (Bedroom)
                         NetatmoIndoorPoint bedroom = new NetatmoIndoorPoint("bedroom");
-                        bedroom.Initialize(module);
+                        bedroom.Initialize(device, module);
                         points.Add(bedroom);
                         break;
                 }

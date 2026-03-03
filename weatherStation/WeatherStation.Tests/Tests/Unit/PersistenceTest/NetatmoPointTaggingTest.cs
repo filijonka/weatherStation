@@ -32,8 +32,15 @@ public class NetatmoPointTaggingTest
     [TestCase("NAModule4")]
     public void Test_Initialize_Module_AddsRoomTags(string moduleType)
     {
+        
         NetatmoPointFactory factory = new NetatmoPointFactory(optionMock.Object,"netatmo");
         IInfluxPoint point = factory.Create(moduleType);
+        Device device = new Device
+        {
+            Id = "00:01:02:03:04:05",
+            HomeId = "12332432",
+            HomeName = "Paradiset"
+        };
 
         StationModule module = new StationModule
         {
@@ -52,7 +59,7 @@ public class NetatmoPointTaggingTest
             }
         };
 
-        point.Initialize(module);
+        point.Initialize(device, module);
 
         Assert.Multiple(() =>
         {
@@ -69,6 +76,13 @@ public class NetatmoPointTaggingTest
         NetatmoPointFactory factory = new NetatmoPointFactory(optionMock.Object,"netatmo");
         IInfluxPoint point = factory.Create("NAModule1");
 
+        Device device = new Device
+        {
+            Id = "00:01:02:03:04:05",
+            HomeId = "12332432",
+            HomeName = "Paradiset"
+        };
+
         StationModule module = new StationModule
         {
             Id = "AA:BB:CC:00:00:01",
@@ -79,7 +93,7 @@ public class NetatmoPointTaggingTest
             DashboardData = new Dashboard { TimeUtc = 1, Temperature = 20 }
         };
 
-        point.Initialize(module);
+        point.Initialize(device, module);
 
         Assert.That(point.Tags.ContainsKey("room_id"), Is.True);
         Assert.That(point.Tags.ContainsKey("room_name"), Is.False);
