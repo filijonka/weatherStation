@@ -10,6 +10,7 @@ using System.Threading;
 using Persistence.Models;
 using Persistence.Models.Interface;
 using System;
+using System.Linq;
 using Microsoft.Extensions.Options;
 using Persistence.Influx;
 
@@ -29,6 +30,7 @@ public sealed class NetatmoService : INetatmoService
     /// <param name="influxWriteService">Influx write service.</param>
     /// <param name="netatmoLogicDataProvider"></param>
     /// <param name="logger">Serilog logger.</param>
+    /// <param name="options"></param>
     public NetatmoService(
         IInfluxWriteService influxWriteService,
         INetatmoLogicDataProvider netatmoLogicDataProvider,
@@ -57,12 +59,7 @@ public sealed class NetatmoService : INetatmoService
             throw new InvalidOperationException("No module to room mappings available from homes data.");
         }
 
-        string moduleId = string.Empty;
-        foreach (KeyValuePair<string, ModuleRoomInfo> entry in moduleRoomLookup)
-        {
-            moduleId = entry.Key;
-            break;
-        }
+        string moduleId = moduleRoomLookup.First().Key;
 
         if (string.IsNullOrWhiteSpace(moduleId))
         {
@@ -80,10 +77,16 @@ public sealed class NetatmoService : INetatmoService
             return 0;
         }
 
-        NetatmoPointFactory factory = new NetatmoPointFactory(options, "netatmo");
+        NetatmoPointFactory factory = new NetatmoPointFactory(this.options, "netatmo");
         List<IInfluxPoint> points = new List<IInfluxPoint>();
         Device device = stationData.Body.Devices[0];
         IInfluxPoint point = factory.Create(device.Type);
+        if (moduleRoomLookup.TryGetValue(device.Id, out ModuleRoomInfo deviceRoomInfo))
+        {
+            device.RoomId = deviceRoomInfo.RoomId;
+            device.RoomName = deviceRoomInfo.RoomName;
+        }
+
         point.Initialize(device);
         points.Add(point);
 
@@ -96,16 +99,17 @@ public sealed class NetatmoService : INetatmoService
         {
             point = factory.Create(module.Type);
 
-            module.RoomId = moduleRoomLookup.TryGetValue(module.Id, out ModuleRoomInfo moduleRoomInfo)
-                ? moduleRoomInfo.RoomId
-                : string.Empty;
-            point.Initialize(module);
+            if (moduleRoomLookup.TryGetValue(module.Id, out ModuleRoomInfo moduleRoomInfo))
+            {
+                module.RoomId = moduleRoomInfo.RoomId;
+                module.RoomName = moduleRoomInfo.RoomName;
+            }
+
+            point.Initialize(device, module);
 
             points.Add(point);
         }
 
-        int written = await this.influxWriteService.WriteAsync(points, cancellationToken);   
-        
-        return written;
+        return await this.influxWriteService.WriteAsync(points, cancellationToken);
     }
 }
