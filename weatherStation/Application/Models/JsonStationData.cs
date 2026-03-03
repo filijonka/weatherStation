@@ -191,6 +191,20 @@ public sealed class Device : IValidatable
     [JsonExtensionData]
     public Dictionary<string, JToken> Extra { get; init; } = new();
 
+    /// <summary>
+    /// Room id where the module is located.
+    /// This value is enriched from homes data during ingestion and is not part of getstationsdata payload.
+    /// </summary>
+    [JsonIgnore]
+    public string RoomId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Room name where the module is located.
+    /// This value is enriched from homes data during ingestion and is not part of getstationsdata payload.
+    /// </summary>
+    [JsonIgnore]
+    public string RoomName { get; set; } = string.Empty;
+
     /// <inheritdoc />
     public bool IsValid()
     {
@@ -443,6 +457,18 @@ public sealed class StationModule : IValidatable
     public string ModuleName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Array of data measured by the module.
+    /// </summary>
+    [JsonProperty("data_type")]
+    public string[] DataType { get; set; } = [];
+
+    /// <summary>
+    /// Unix timestamp of the last installation.
+    /// </summary>
+    [JsonProperty("last_setup")]
+    public long LastSetup { get; set; }
+
+    /// <summary>
     /// Room id where the module is located.
     /// This value is enriched from homes data during ingestion and is not part of getstationsdata payload.
     /// </summary>
@@ -455,18 +481,6 @@ public sealed class StationModule : IValidatable
     /// </summary>
     [JsonIgnore]
     public string RoomName { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Array of data measured by the module.
-    /// </summary>
-    [JsonProperty("data_type")]
-    public string[] DataType { get; set; } = [];
-
-    /// <summary>
-    /// Unix timestamp of the last installation.
-    /// </summary>
-    [JsonProperty("last_setup")]
-    public long LastSetup { get; set; }
 
     /// <summary>
     /// True if the module connected to Netatmo cloud within the last 4 hours.
