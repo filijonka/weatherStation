@@ -2,6 +2,8 @@ using API.Auth.Netatmo.Services;
 
 using System.Threading.Tasks;
 using System.Threading;
+using API.Responses;
+
 namespace API.Auth.Netatmo.Interface;
 
 /// <summary>
@@ -10,11 +12,11 @@ namespace API.Auth.Netatmo.Interface;
 public interface INetatmoOAuthClient
 {
     /// <summary>
-    /// Builds the Netatmo authorization URL.
+    /// 
     /// </summary>
-    /// <param name="state">Opaque state value for CSRF protection.</param>
-    /// <returns>Authorization URL.</returns>
-    string BuildAuthorizeUrl(string state);
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    Task<NetatmoAuthStatusResponse> Login(CancellationToken cancellationToken);
 
     /// <summary>
     /// Exchanges an authorization code for tokens.
@@ -23,12 +25,4 @@ public interface INetatmoOAuthClient
     /// <param name="cancellationToken">Token used to cancel the request.</param>
     /// <returns>Token information.</returns>
     Task<NetatmoTokenInfo> ExchangeCodeAsync(string code, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Refreshes access tokens using a refresh token.
-    /// </summary>
-    /// <param name="refreshToken">Refresh token.</param>
-    /// <param name="cancellationToken">Token used to cancel the request.</param>
-    /// <returns>Token information.</returns>
-    Task<NetatmoTokenInfo> RefreshAsync(string refreshToken, CancellationToken cancellationToken);
 }

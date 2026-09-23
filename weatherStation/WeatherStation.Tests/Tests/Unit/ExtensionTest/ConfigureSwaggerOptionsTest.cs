@@ -4,10 +4,8 @@ using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
 using Microsoft.OpenApi.Models;
 using Moq;
-using NUnit.Framework;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace WeatherStation.Tests.Tests.Unit.ExtensionTest;
 
@@ -17,9 +15,6 @@ namespace WeatherStation.Tests.Tests.Unit.ExtensionTest;
 [TestFixture]
 public class ConfigureSwaggerOptionsTest
 {
-    /// <summary>
-    /// Configure should add security definition.
-    /// </summary>
     [Test]
     public void Test_Configure_AddsSecurityDefinition()
     {
@@ -34,9 +29,6 @@ public class ConfigureSwaggerOptionsTest
         Assert.That(swaggerOptions.SwaggerGeneratorOptions.SwaggerDocs, Is.Not.Null);
     }
 
-    /// <summary>
-    /// Configure should add operation filter.
-    /// </summary>
     [Test]
     public void Test_Configure_AddsOperationFilter()
     {
@@ -51,9 +43,6 @@ public class ConfigureSwaggerOptionsTest
         Assert.That(swaggerOptions.SwaggerGeneratorOptions.OperationAsyncFilters, Is.Empty);
     }
 
-    /// <summary>
-    /// Configure should create version info.
-    /// </summary>
     [Test]
     public void Test_Configure_CreatesVersionInfo()
     {
@@ -78,9 +67,6 @@ public class ConfigureSwaggerOptionsTest
         Assert.That(value.Title, Is.EqualTo("Weather Station"));
     }
 
-    /// <summary>
-    /// Configure should add deprecation message for deprecated version.
-    /// </summary>
     [Test]
     public void Test_Configure_DeprecatedVersion_AddsDeprecationMessage()
     {

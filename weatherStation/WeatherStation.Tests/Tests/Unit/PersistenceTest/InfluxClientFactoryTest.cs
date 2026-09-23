@@ -1,6 +1,7 @@
-using Persistance.Influx;
+using System;
+using Persistence.Influx;
+using Persistence.Influx.Interface;
 
-using InfluxDB.Client;
 using Microsoft.Extensions.Options;
 
 namespace WeatherStation.Tests.Tests.Unit.PersistenceTest;
@@ -11,9 +12,6 @@ namespace WeatherStation.Tests.Tests.Unit.PersistenceTest;
 [TestFixture]
 public class InfluxClientFactoryTest
 {
-    /// <summary>
-    /// Get write client should return write client.
-    /// </summary>
     [Test]
     public void Test_GetWriteClient_ReturnsWriteClient()
     {
@@ -32,9 +30,6 @@ public class InfluxClientFactoryTest
         factory.Dispose();
     }
 
-    /// <summary>
-    /// Get write client should use options.
-    /// </summary>
     [Test]
     public void Test_GetWriteClient_UsesOptions()
     {
@@ -54,4 +49,22 @@ public class InfluxClientFactoryTest
         Assert.That(writeClient, Is.Not.Null);
         factory.Dispose();
     }
+    [Test]
+    public void Test_Dispose_IsIdempotent()
+    {
+        InfluxOptions options = new InfluxOptions { Url = "http://localhost:8086", Token = "token" };
+        IOptions<InfluxOptions> optionsWrapper = Options.Create(options);
+        InfluxClientFactory factory = new InfluxClientFactory(optionsWrapper);
+        factory.Dispose();
+        Assert.DoesNotThrow(() => factory.Dispose());
+    }
+
+    [Test]
+    public void Test_InvalidOptions_Throws()
+    {
+        InfluxOptions options = new InfluxOptions { Url = "", Token = "" };
+        IOptions<InfluxOptions> optionsWrapper = Options.Create(options);
+        Assert.Throws<ArgumentException>(() => new InfluxClientFactory(optionsWrapper));
+    }
+
 }

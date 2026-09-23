@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace API.Auth.Netatmo.Services;
@@ -57,10 +58,10 @@ internal sealed class NetatmoTokenResponse
     public string RefreshToken { get; init; } = string.Empty;
 
     /// <summary>
-    /// Granted OAuth scopes.
+    /// Granted OAuth scopes (array in Netatmo response, e.g. ["read_station", "read_thermostat"]).
     /// </summary>
     [JsonPropertyName("scope")]
-    public string Scope { get; init; } = string.Empty;
+    public List<string> Scope { get; init; }
 
     /// <summary>
     /// Token type (for example, Bearer).

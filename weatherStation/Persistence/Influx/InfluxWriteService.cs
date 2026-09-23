@@ -1,14 +1,19 @@
-using Persistance.Models;
 
+using Persistence.Influx.Interface;
+using Persistence.Models.Interface;
+
+using InfluxDB.Client;
 using InfluxDB.Client.Api.Domain;
 using InfluxDB.Client.Writes;
-using InfluxDB.Client;
 using Microsoft.Extensions.Options;
 using Serilog;
+using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using System.Threading;
-namespace Persistance.Influx;
+using System.Threading.Tasks;
+using InfluxDB.Client.Core.Exceptions;
+
+namespace Persistence.Influx;
 
 /// <inheritdoc />
 public sealed class InfluxWriteService : IInfluxWriteService
@@ -35,7 +40,7 @@ public sealed class InfluxWriteService : IInfluxWriteService
     }
 
     /// <inheritdoc />
-    public async Task<int> WriteAsync(IReadOnlyCollection<WeatherReading> readings, CancellationToken cancellationToken)
+    public async Task<int> WriteAsync(IReadOnlyCollection<IInfluxPoint> readings, CancellationToken cancellationToken)
     {
         if (readings.Count == 0)
         {
@@ -43,24 +48,40 @@ public sealed class InfluxWriteService : IInfluxWriteService
         }
 
         List<PointData> points = new List<PointData>(readings.Count);
-        foreach (WeatherReading reading in readings)
+        foreach (IInfluxPoint reading in readings)
         {
-            PointData point = PointData
-                .Measurement("weather_reading")
-                .Tag("stationId", reading.StationId)
-                .Tag("sensor", reading.Sensor)
-                .Tag("unit", reading.Unit)
-                .Field("value", reading.Value)
-                .Timestamp(reading.Timestamp.ToUniversalTime(), WritePrecision.Ns);
+            PointData point = PointData.Measurement(reading.Measurement);
+            foreach (KeyValuePair<string, object> field in reading.Fields)
+            {
+                point = point.Field(field.Key, field.Value);
+            }
+
+            foreach (KeyValuePair<string, string> tag in reading.Tags)
+            {
+                point = point.Tag(tag.Key, tag.Value);
+            }
+            point = point.Timestamp(reading.TimestampUtc.ToUniversalTime(), WritePrecision.Ns);
 
             points.Add(point);
         }
 
-        this.logger.Information("Writing {Count} readings to InfluxDB bucket {Bucket}", points.Count, this.options.Bucket);
 
-        IWriteApiAsync writeApi = this.influxClientFactory.GetWriteClient().GetWriteApiAsync();
-        await writeApi.WritePointsAsync(points, this.options.Bucket, this.options.Org, cancellationToken);
-
+        try
+        {
+            IWriteApiAsync writeApi = this.influxClientFactory.GetWriteClient().GetWriteApiAsync();
+            await writeApi.WritePointsAsync(points, this.options.Bucket, this.options.Org, cancellationToken);
+            this.logger.Information("Wrote {Count} readings to InfluxDB bucket {Bucket}", points.Count, this.options.Bucket);
+        }
+        catch (HttpException)
+        {
+            this.logger.Error("We got connection error from influxdb");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            this.logger.Error(ex,"We got an exception in writing  points to influx");
+            return 0;
+        }
         return points.Count;
     }
 }

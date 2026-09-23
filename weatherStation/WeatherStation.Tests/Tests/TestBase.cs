@@ -45,10 +45,7 @@ public class TestBase
     /// <returns>An OperationFilterContext instance with the specified method info.</returns>
     protected static OperationFilterContext CreateOperationFilterContext(MethodInfo methodInfo)
     {
-        if (methodInfo is null)
-        {
-            throw new ArgumentNullException(nameof(methodInfo));
-        }
+        ArgumentNullException.ThrowIfNull(methodInfo);
 
         ApiDescription apiDescription = new ApiDescription();
         ISchemaGenerator schemaGenerator = new Mock<ISchemaGenerator>().Object;

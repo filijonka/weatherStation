@@ -27,6 +27,7 @@ RUN dotnet publish "weatherStation/API/API.csproj" -c Debug -o /app/publish --no
 FROM base AS final
 WORKDIR /app
 
+RUN mkdir -p /app/data && chown weather:weather /app/data
 COPY --from=publish --chown=weather:weather /app/publish ./
 USER weather
 ENTRYPOINT ["dotnet", "API.dll"]

@@ -1,5 +1,6 @@
+using API.Auth.Netatmo.Options;
 using API.Extensions;
-
+using API.Options;
 using Asp.Versioning.ApiExplorer;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Builder;
@@ -13,6 +14,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -70,6 +72,18 @@ builder.Services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwa
 
 WebApplication app = builder.Build();
 
+try
+{
+    _ = app.Services.GetRequiredService<IOptions<NetatmoOptions>>().Value;
+    _ = app.Services.GetRequiredService<IOptions<WeatherApiOptions>>().Value;
+}
+catch (OptionsValidationException ex)
+{
+    foreach (string failure in ex.Failures)
+        applicationLogger.Fatal("Options validation failed: {Failure}", failure);
+    throw;
+}
+
 // Configure the HTTP request pipeline.
 IApiVersionDescriptionProvider apiVersionDescriptionProvider =
     app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
@@ -84,14 +98,26 @@ app.UseSwaggerUI(options =>
     }
 });
 
+app.UseCors("CorsPolicy");
+
 app.UseHttpsRedirection();
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+app.UseRouting();
+app.UseResponseCaching();
+
+app.UseAuthorization();
+
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();
 
 /// <summary>
 /// Application entry point.
 /// </summary>
+[ExcludeFromCodeCoverage]
 internal static partial class Program
 {
 }

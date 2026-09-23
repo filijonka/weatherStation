@@ -1,0 +1,10 @@
+apiVersion: 1
+
+datasources:
+  - name: WeatherStation API
+    uid: weatherstation-api
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    url: http://api:8080
+    isDefault: false
+    editable: false

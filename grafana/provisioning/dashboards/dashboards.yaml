@@ -1,6 +1,6 @@
 apiVersion: 1
 
-dashboards:
+providers:
   - name: weatherstation
     orgId: 1
     folder: WeatherStation

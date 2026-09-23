@@ -1,13 +1,23 @@
 using API.Auth.Netatmo.Interface;
 using API.Auth.Netatmo.Options;
 using API.Auth.Netatmo.Services;
-using API.Interface;
+using API.Background.Tasks;
+using API.Filters;
+using API.Helpers;
+using API.Interface.Helpers;
+using API.Interface.Logic;
+using API.Interface.Services;
+using API.Interface.Tasks;
+using API.Logic;
 using API.Options;
 using API.Services;
-using Persistance.Influx;
-
+using BackgroundNetatmoService = API.Background.Services.NetatmoService;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Persistence.Influx;
+using Persistence.Influx.Interface;
 using Serilog;
 
 namespace API.Extensions;
@@ -29,15 +39,35 @@ public static class ApplicationServiceExtension
     )
     {
         services.Configure<InfluxOptions>(configuration.GetSection("Influx"));
-        services.Configure<WeatherApiOptions>(configuration.GetSection("WeatherApi"));
-        services.Configure<NetatmoOptions>(configuration.GetSection("Netatmo"));
+        RegisterValidatedOptions<WeatherApiOptions>(services, configuration.GetSection("WeatherApi"));
+        RegisterValidatedOptions<NetatmoOptions>(services, configuration.GetSection("Netatmo"));
         services.AddSingleton<IInfluxClientFactory, InfluxClientFactory>();
         services.AddSingleton<IInfluxWriteService, InfluxWriteService>();
-        services.AddSingleton<IWeatherIngestService, WeatherIngestService>();
+        services.AddSingleton<IMemoryCache, MemoryCache>();
+        services.AddSingleton<INetatmoService, NetatmoService>();
         services.AddSingleton<INetatmoTokenStore, NetatmoTokenStore>();
+        services.AddSingleton<INetatmoLogicDataProvider, NetatmoLogicDataProvider>();
+        services.AddSingleton<INetatmoTask, NetatmoTask>();
+        
         services.AddHttpClient<INetatmoOAuthClient, NetatmoOAuthClient>();
-
+        services.AddHttpClient();
+        services.AddScoped<NetatmoAuthenticatedFilter>();
+        services.AddTransient<ITaskDelayer, TaskDelayer>();
+        services.AddHostedService<BackgroundNetatmoService>();
         return services;
+    }
+
+    /// <summary>
+    /// Registers a validated options type: binds from configuration and adds IValidateOptions that calls Validate().
+    /// </summary>
+    /// <typeparam name="TOptions">The options type; must inherit ValidatedOptionsBase.</typeparam>
+    /// <param name="services">Service collection.</param>
+    /// <param name="section">Configuration section to bind from.</param>
+    private static void RegisterValidatedOptions<TOptions>(IServiceCollection services, IConfigurationSection section)
+        where TOptions : ValidatedOptionsBase
+    {
+        services.Configure<TOptions>(section);
+        services.AddSingleton<IValidateOptions<TOptions>, ValidatedOptionsValidator<TOptions>>();
     }
 
     /// <summary>

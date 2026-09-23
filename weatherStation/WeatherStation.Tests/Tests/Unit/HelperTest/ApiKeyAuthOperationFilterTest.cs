@@ -14,49 +14,49 @@ namespace WeatherStation.Tests.Tests.Unit.HelperTest;
 [TestFixture]
 public class ApiKeyAuthOperationFilterTest : TestBase
 {
-    /// <summary>
-    /// Apply should add security requirement when method has ApiKeyAuth attribute.
-    /// </summary>
     [Test]
     public void Test_Apply_WithApiKeyAuthAttribute_AddsSecurityRequirement()
     {
         ApiKeyAuthOperationFilter filter = new ApiKeyAuthOperationFilter();
         OpenApiOperation operation = new OpenApiOperation();
-        MethodInfo methodInfo = typeof(TestController).GetMethod(nameof(TestController.MethodWithAttribute), BindingFlags.Public | BindingFlags.Instance);
+        MethodInfo methodInfo = typeof(TestController).GetMethod(
+            nameof(TestController.MethodWithAttribute),
+            BindingFlags.Public | BindingFlags.Static
+        );
         OperationFilterContext context = CreateOperationFilterContext(methodInfo);
 
         filter.Apply(operation, context);
 
         Assert.That(operation.Security, Is.Not.Null);
-        Assert.That(operation.Security.Count, Is.GreaterThan(0));
+        Assert.That(operation.Security, Is.Not.Empty);
     }
 
-    /// <summary>
-    /// Apply should add security requirement when controller has ApiKeyAuth attribute.
-    /// </summary>
     [Test]
     public void Test_Apply_WithApiKeyAuthAttributeOnController_AddsSecurityRequirement()
     {
         ApiKeyAuthOperationFilter filter = new ApiKeyAuthOperationFilter();
         OpenApiOperation operation = new OpenApiOperation();
-        MethodInfo methodInfo = typeof(TestControllerWithAttribute).GetMethod(nameof(TestControllerWithAttribute.Method), BindingFlags.Public | BindingFlags.Instance);
+        MethodInfo methodInfo = typeof(TestControllerWithAttribute).GetMethod(
+            nameof(TestControllerWithAttribute.Method),
+            BindingFlags.Public | BindingFlags.Static
+        );
         OperationFilterContext context = CreateOperationFilterContext(methodInfo);
 
         filter.Apply(operation, context);
 
         Assert.That(operation.Security, Is.Not.Null);
-        Assert.That(operation.Security.Count, Is.GreaterThan(0));
+        Assert.That(operation.Security, Is.Not.Empty);
     }
 
-    /// <summary>
-    /// Apply should not add security requirement when no attribute.
-    /// </summary>
     [Test]
     public void Test_Apply_WithoutAttribute_NoSecurityRequirement()
     {
         ApiKeyAuthOperationFilter filter = new ApiKeyAuthOperationFilter();
         OpenApiOperation operation = new OpenApiOperation();
-        MethodInfo methodInfo = typeof(TestController).GetMethod(nameof(TestController.MethodWithoutAttribute), BindingFlags.Public | BindingFlags.Instance);
+        MethodInfo methodInfo = typeof(TestController).GetMethod(
+            nameof(TestController.MethodWithoutAttribute),
+            BindingFlags.Public | BindingFlags.Static
+        );
         OperationFilterContext context = CreateOperationFilterContext(methodInfo);
 
         filter.Apply(operation, context);
@@ -67,14 +67,23 @@ public class ApiKeyAuthOperationFilterTest : TestBase
     private class TestController : ControllerBase
     {
         [ApiKeyAuth]
-        public void MethodWithAttribute() { }
+        public static void MethodWithAttribute()
+        {
+            // Method intentionally left empty.
+        }
 
-        public void MethodWithoutAttribute() { }
+        public static void MethodWithoutAttribute()
+        {
+            // Method intentionally left empty.
+        }
     }
 
     [ApiKeyAuth]
     private class TestControllerWithAttribute : ControllerBase
     {
-        public void Method() { }
+        public static void Method()
+        {
+            // Method intentionally left empty.
+        }
     }
 }
