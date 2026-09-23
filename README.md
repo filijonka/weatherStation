@@ -1,12 +1,12 @@
 # WeatherStation
 
-WeatherStation is an ASP.NET Core-based application for retrieving weather data from Netatmo, storing measurements in InfluxDB, and presenting data via Grafana.
+WeatherStation is an ASP.NET Core-based application for retrieving climate data from Netatmo, storing measurements in InfluxDB, and presenting data via Grafana.
 
 The application consists of:
 
 - A REST API built with ASP.NET Core.
 - OAuth authentication against Netatmo.
-- Automatic retrieval and storage of weather data.
+- Automatic retrieval and storage of climate data.
 - InfluxDB 3 Core as a time-series database.
 - Grafana for visualization.
 - InfluxDB 3 Explorer for administration and troubleshooting.
@@ -22,8 +22,8 @@ The application is structured to be extensible with multiple data sources and st
 ```text
 +---------------------------+      +--------------------------------------+
 | Netatmo                   |      | Future data sources                  |
-| - OAuth                   |      | - another weather station           |
-| - data retrieval           |      | - external weather API              |
+| - OAuth                   |      | - another climate station           |
+| - data retrieval           |      | - external climate API              |
 | - normalization           |      | - IoT devices                       |
 +-------------+-------------+      | - MQTT                              |
               |                    | - home automation systems          |
@@ -66,8 +66,8 @@ All Netatmo-specific code is grouped under Netatmo-related folders or named with
 
 Examples of additional data sources include:
 
-- Another weather station.
-- An external weather API.
+- Another climate station.
+- An external climate API.
 - IoT devices.
 - MQTT.
 - Home automation systems.
@@ -187,7 +187,7 @@ Responsibilities:
 - Read and refresh Netatmo tokens.
 - Retrieve home and station data from Netatmo.
 - Start the periodic background process.
-- Coordinate storage of weather measurements.
+- Coordinate storage of climate measurements.
 
 ### Application
 
@@ -203,7 +203,7 @@ Examples:
 
 ### Persistence
 
-`weatherStation/Persistence` is responsible for storing weather data in InfluxDB.
+`weatherStation/Persistence` is responsible for storing climate data in InfluxDB.
 
 ```text
 Persistence/
@@ -446,7 +446,7 @@ When the API runs in Docker, the Docker Compose service DNS name is used:
 http://influxdb:8181
 ```
 
-`Org` and `Bucket` are used by the InfluxDB client when writing weather data.
+`Org` and `Bucket` are used by the InfluxDB client when writing climate data.
 
 ### Netatmo
 
@@ -470,7 +470,7 @@ http://influxdb:8181
 
 ### WeatherApi
 
-The application also has configuration for an external weather API:
+The application also has configuration for an external climate API:
 
 ```json
 {
@@ -508,7 +508,7 @@ The default configuration writes logs to the console:
 
 Logging to InfluxDB is not part of the active default solution. A future development step is to complement console logging with an InfluxDB 3 Core-native solution for structured logging.
 
-Weather data sent to InfluxDB is handled separately by the `Persistence` project's `InfluxWriteService`.
+Climate data sent to InfluxDB is handled separately by the `Persistence` project's `InfluxWriteService`.
 
 ## Docker Compose
 
@@ -520,30 +520,6 @@ The following services are defined in `docker-compose.yml`:
 | `influxdb` | `8181` | InfluxDB 3 Core |
 | `influxdb3-explorer` | `8888` | Web interface for InfluxDB 3 |
 | `grafana` | `3000` | Visualization and dashboards |
-
-### Start the environment
-
-```bash
-docker compose up -d --build
-```
-
-### View logs
-
-```bash
-docker compose logs -f api
-```
-
-### Check services
-
-```bash
-docker compose ps
-```
-
-### Stop the environment
-
-```bash
-docker compose down
-```
 
 If Docker volumes are also removed, the stored data in those volumes is lost. InfluxDB data is stored according to the Compose configuration under:
 
@@ -577,7 +553,7 @@ GRAFANA_ADMIN_PASSWORD=<password>
 Grafana is configured automatically with two data sources:
 
 1. `InfluxDB`
-   - Used for weather measurements.
+   - Used for climate measurements.
    - Points to `http://influxdb:8181`.
 
 2. `WeatherStation API`
@@ -592,13 +568,13 @@ grafana/dashboards/weather_readings.json
 
 The dashboard includes, among other things:
 
-- Time series for weather values from InfluxDB.
+- Time series for climate values from InfluxDB.
 - Netatmo OAuth status.
 - Login link when Netatmo is not authenticated.
 
 ## InfluxDB data
 
-Measurement data is written to the configured bucket specified by:
+Climate measurement data is written to the configured bucket specified by:
 
 ```json
 "Influx": {
@@ -621,7 +597,7 @@ InfluxDB 3 Core must be correctly configured and reachable before data can be wr
 
 ### Prerequisites
 
-- .NET SDK `10.0.102`
+- .NET SDK 10
 - Docker Desktop if the full infrastructure is to run locally
 - Netatmo developer application
 - InfluxDB token
@@ -658,8 +634,8 @@ dotnet test WeatherStation.sln --configuration Release
 
 ## Planned improvements
 
-- Netatmo tokens are stored as a local JSON file and should be replaced with more secure persistent secret management in a production environment.
-- The background service depends on Netatmo OAuth configuration being correct.
+- Netatmo tokens are stored in a local JSON file, which is suitable for local development. Production deployments should use a secure and persistent secrets-management solution instead.
+- The background service currently relies on valid Netatmo OAuth configuration and token state; this should be hardened by validating static configuration at startup and validating runtime token status before each refresh or fetch.
 - Logging and measurements should eventually receive a more unified InfluxDB 3 Core-native integration.
 - InfluxDB 3 Core configuration and tokens should be able to be initialized and managed more automatically together with Docker Compose.
 - The API runs with HTTP in the Docker configuration. TLS should be handled by a reverse proxy or ingress in production.
