@@ -632,9 +632,13 @@ http://localhost:8080
 dotnet test WeatherStation.sln --configuration Release
 ```
 
+## Continuous integration
+
+GitHub Actions runs the test workflow on pushes to branches and on pull requests targeting the `master` or `test` branches. The workflow runs the tests when application code under `weatherStation/` or the `Dockerfile` has changed, including changes associated with merging into those branches.
+
 ## Planned improvements
 
-- Netatmo tokens are stored in a local JSON file, which is suitable for local development. Production deployments should use a secure and persistent secrets-management solution instead.
+- Netatmo tokens are stored in a local JSON file, which is suitable for local development. In production, use a secure and persistent secrets-management solution instead.
 - The background service currently relies on valid Netatmo OAuth configuration and token state; this should be hardened by validating static configuration at startup and validating runtime token status before each refresh or fetch.
 - Logging and measurements should eventually receive a more unified InfluxDB 3 Core-native integration.
 - InfluxDB 3 Core configuration and tokens should be able to be initialized and managed more automatically together with Docker Compose.
